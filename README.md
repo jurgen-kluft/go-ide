@@ -13,25 +13,23 @@ Pure Go project descriptions, IDE generators, and IDE toolchain discovery.
 
 ## Visual Studio generation
 
-`msdev.Generate` writes deterministic Visual Studio 2022 solutions, C++
-projects, and filter files. A workspace combines `denv.DevProject`
-declarations with typed `msdev.VsConfiguration` values supplied by an SDK
-adapter such as `csdk`:
+`msdev.GeneratePackage` resolves package variables into typed configurations
+and writes deterministic Visual Studio 2022 solutions, C++ projects, and
+filter files:
 
 ```go
-err := msdev.Generate(msdev.Workspace{
-	Name:      "example",
-	OutputDir: "target/msdev",
-	Projects: []msdev.Project{{
-		Definition: project,
-		Configurations: []msdev.ProjectConfiguration{{
-			BuildConfig: denv.NewDebugDevConfig(),
-			Options:     debugOptions,
-		}},
-	}},
+err := msdev.GeneratePackage(pkg, msdev.WorkspaceOptions{
+	OutputDir:    "target/msdev",
+	BuildTarget: denv.BuildTargetWindowsX64,
+	BuildConfigs: []denv.BuildConfig{
+		denv.NewDebugConfig(),
+		denv.NewReleaseConfig(),
+	},
 })
 ```
 
+`msdev.NewConfigurationFromVars` exposes strict `gcore.Vars` parsing, while
+`msdev.BuildWorkspace` exposes the intermediate workspace for customization.
 The generator expands project source globs, merges matching `denv.DevConfig`
 include paths, defines, and libraries, and translates typed compiler and linker
 settings at the MSBuild boundary.

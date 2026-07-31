@@ -314,6 +314,7 @@ func writeCompileOptions(document *xmlDocument, options VsConfiguration) {
 func writeLinkOptions(document *xmlDocument, options VsConfiguration) {
 	document.start("Link")
 	writeOptional(document, "SubSystem", subsystem(options.Subsystem))
+	writeOptional(document, "LinkErrorReporting", linkErrorReporting(options.LinkErrorReporting))
 	writeOptional(document, "TargetMachine", machine(options.Machine))
 	writeInheritedList(document, "AdditionalLibraryDirectories", options.LibraryPaths)
 	writeInheritedList(document, "AdditionalDependencies", options.Libraries)
@@ -591,6 +592,15 @@ func inlineExpansion(value VsInlineExpansion) string {
 
 func subsystem(value VsSubsystem) string {
 	return map[VsSubsystem]string{VsSubsystemConsole: "Console", VsSubsystemWindows: "Windows"}[value]
+}
+
+func linkErrorReporting(value VsLinkErrorReporting) string {
+	return map[VsLinkErrorReporting]string{
+		VsLinkErrorReportingPrompt: "Prompt",
+		VsLinkErrorReportingQueue:  "Queue",
+		VsLinkErrorReportingSend:   "Send",
+		VsLinkErrorReportingNone:   "NoErrorReport",
+	}[value]
 }
 
 func writeOptional(document *xmlDocument, name, value string) {

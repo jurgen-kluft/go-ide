@@ -79,6 +79,16 @@ const (
 	VsSubsystemWindows
 )
 
+type VsLinkErrorReporting uint8
+
+const (
+	VsLinkErrorReportingDefault VsLinkErrorReporting = iota
+	VsLinkErrorReportingPrompt
+	VsLinkErrorReportingQueue
+	VsLinkErrorReportingSend
+	VsLinkErrorReportingNone
+)
+
 type VsMachine uint8
 
 const (
@@ -124,20 +134,21 @@ func (options VsLinkOptions) Has(option VsLinkOptions) bool {
 }
 
 type VsConfiguration struct {
-	CStandard         VsCStandard
-	CppStandard       VsCppStandard
-	Optimization      VsOptimization
-	WarningLevel      VsWarningLevel
-	DebugInformation  VsDebugInformation
-	ExceptionHandling VsExceptionHandling
-	FloatingPoint     VsFloatingPointModel
-	InlineExpansion   VsInlineExpansion
-	Subsystem         VsSubsystem
-	Machine           VsMachine
-	CompileOptions    VsCompileOptions
-	LinkOptions       VsLinkOptions
-	Defines           []string
-	IncludePaths      []string
-	LibraryPaths      []string
-	Libraries         []string
+	CStandard          VsCStandard
+	CppStandard        VsCppStandard
+	Optimization       VsOptimization
+	WarningLevel       VsWarningLevel
+	DebugInformation   VsDebugInformation
+	ExceptionHandling  VsExceptionHandling
+	FloatingPoint      VsFloatingPointModel
+	InlineExpansion    VsInlineExpansion
+	Subsystem          VsSubsystem
+	LinkErrorReporting VsLinkErrorReporting
+	Machine            VsMachine
+	CompileOptions     VsCompileOptions
+	LinkOptions        VsLinkOptions
+	Defines            []string
+	IncludePaths       []string
+	LibraryPaths       []string
+	Libraries          []string
 }

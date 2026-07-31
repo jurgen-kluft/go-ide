@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="DebugDev|x64">
+      <Configuration>DebugDev</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseDev|x64">
+      <Configuration>ReleaseDev</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{E761E0D0-4044-5D00-6D39-2625E202C7FC}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>hello</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props"></Import>
+  <PropertyGroup Condition="&#39;$(Configuration)|$(Platform)&#39;==&#39;DebugDev|x64&#39;" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="&#39;$(Configuration)|$(Platform)&#39;==&#39;ReleaseDev|x64&#39;" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props"></Import>
+  <PropertyGroup Label="UserMacros"></PropertyGroup>
+  <PropertyGroup Condition="&#39;$(Configuration)|$(Platform)&#39;==&#39;DebugDev|x64&#39;">
+    <OutDir>$ROOT\bin\debug\</OutDir>
+    <IntDir>$ROOT\obj\debug\</IntDir>
+    <TargetName>hello</TargetName>
+    <TargetExt>.exe</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="&#39;$(Configuration)|$(Platform)&#39;==&#39;DebugDev|x64&#39;">
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>false</ExceptionHandling>
+      <PreprocessorDefinitions>HELLO_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$ROOT/hello/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <TreatWarningAsError>true</TreatWarningAsError>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <TargetMachine>MachineX64</TargetMachine>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <RandomizedBaseAddress>true</RandomizedBaseAddress>
+    </Link>
+  </ItemDefinitionGroup>
+  <PropertyGroup Condition="&#39;$(Configuration)|$(Platform)&#39;==&#39;ReleaseDev|x64&#39;"></PropertyGroup>
+  <ItemDefinitionGroup Condition="&#39;$(Configuration)|$(Platform)&#39;==&#39;ReleaseDev|x64&#39;">
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>MaxSpeed</Optimization>
+      <ExceptionHandling>false</ExceptionHandling>
+    </ClCompile>
+    <Link>
+      <TargetMachine>MachineX64</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\hello\source\hello.h"></ClInclude>
+    <ClCompile Include="..\..\hello\source\main.cpp"></ClCompile>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"></Import>
+</Project>

@@ -9,7 +9,9 @@ Pure Go project descriptions, IDE generators, and IDE toolchain discovery.
 - `msdev/msvc`: Visual Studio and MSVC discovery.
 - `msdev/winsdk`: Windows SDK discovery.
 
-`gide` depends on `gcore` and does not depend on `ccode` or `csdk`.
+## Dependencies
+
+- `gcore`
 
 ## Visual Studio generation
 

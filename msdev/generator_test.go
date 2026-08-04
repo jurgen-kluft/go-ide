@@ -34,7 +34,8 @@ func TestGenerateVs2022Workspace(t *testing.T) {
 		BuildType:    denv.BuildTypeApplication,
 		BuildTargets: denv.BuildTargetWindowsX64,
 		SourceDirs: []denv.PinnedGlobPath{
-			denv.NewPinnedGlobPath(root, "hello", "source", "**/*.{cpp,h}"),
+			denv.NewPinnedGlobPath(root, "hello", "source", "**/*.cpp"),
+			denv.NewPinnedGlobPath(root, "hello", "source", "**/*.h"),
 		},
 		Configs:      []*denv.DevConfig{debug},
 		Dependencies: denv.NewDevProjectList(),
@@ -98,7 +99,7 @@ func TestGenerateVs2022Workspace(t *testing.T) {
 	assertContains(t, projectXml, `<PreprocessorDefinitions>HELLO_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>`)
 	assertContains(t, projectXml, `<ClCompile Include="..\..\hello\source\main.cpp"></ClCompile>`)
 	assertContains(t, projectXml, `<ClInclude Include="..\..\hello\source\hello.h"></ClInclude>`)
-	assertContains(t, filtersXml, `<Filter>source</Filter>`)
+	assertContains(t, filtersXml, `<ClCompile Include="..\..\hello\source\main.cpp"></ClCompile>`)
 	assertContains(t, solution, "DebugDev|x64 = DebugDev|x64")
 	assertContains(t, solution, "ReleaseDev|x64 = ReleaseDev|x64")
 	assertContains(t, solution, ".DebugDev|x64.Build.0 = DebugDev|x64")
@@ -116,6 +117,40 @@ func TestGenerateVs2022Workspace(t *testing.T) {
 			t.Errorf("Generate() produced non-deterministic output for %s", filepath.Base(path))
 		}
 	}
+}
+
+func TestGenerateProjectAndFiltersIncludeHeaders(t *testing.T) {
+	root := t.TempDir()
+	outputDir := filepath.Join(root, "ide", "vs2022")
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	workspace := Workspace{OutputDir: outputDir}
+	project := Project{Definition: &denv.DevProject{Name: "hello"}}
+	headerPath := filepath.Join(root, "hello", "include", "public", "hello.h")
+	headers := []sourceFile{{
+		absPath: headerPath,
+		filter:  filepath.Join("include", "public"),
+		tag:     "ClInclude",
+	}}
+
+	if err := generateProject(workspace, project, headers, map[string]string{"hello": stableGuid("hello")}); err != nil {
+		t.Fatalf("generateProject() error = %v", err)
+	}
+	if err := generateFilters(workspace, project, headers); err != nil {
+		t.Fatalf("generateFilters() error = %v", err)
+	}
+
+	projectXml := readTestFile(t, filepath.Join(outputDir, "hello.vcxproj"))
+	filtersXml := readTestFile(t, filepath.Join(outputDir, "hello.vcxproj.filters"))
+	assertValidXml(t, projectXml)
+	assertValidXml(t, filtersXml)
+	assertContains(t, projectXml, `<ClInclude Include="..\..\hello\include\public\hello.h"></ClInclude>`)
+	assertContains(t, filtersXml, `<Filter Include="include">`)
+	assertContains(t, filtersXml, `<Filter Include="include\public">`)
+	assertContains(t, filtersXml, `<ClInclude Include="..\..\hello\include\public\hello.h">`)
+	assertContains(t, filtersXml, `<Filter>include\public</Filter>`)
 }
 
 func TestGenerateRejectsProjectWithoutConfigurations(t *testing.T) {
@@ -163,6 +198,7 @@ func assertGolden(t *testing.T, name, actual, root string) {
 	t.Helper()
 	actual = strings.ReplaceAll(actual, windowsPath(root), "$ROOT")
 	actual = strings.ReplaceAll(actual, root, "$ROOT")
+	actual = strings.ReplaceAll(actual, "\r\n", "\n")
 	path := filepath.Join("testdata", name)
 	if os.Getenv("UPDATE_GOLDEN") != "" {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -173,7 +209,8 @@ func assertGolden(t *testing.T, name, actual, root string) {
 		}
 	}
 	expected := readTestFile(t, path)
+	expected = strings.ReplaceAll(expected, "\r\n", "\n")
 	if actual != expected {
-		t.Errorf("generated output differs from %s", path)
+		t.Errorf("generated output %s differs from %s", actual, expected)
 	}
 }

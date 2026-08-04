@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	corepkg "github.com/jurgen-kluft/gcore"
 	"github.com/jurgen-kluft/gide/denv"
@@ -70,6 +71,9 @@ func BuildWorkspace(pkg *denv.Package, options WorkspaceOptions) (*Workspace, er
 			Configurations: configurations,
 		})
 	}
+	if err := resolveProjectConfigurations(workspace.Projects); err != nil {
+		return nil, err
+	}
 
 	if len(workspace.Projects) == 0 {
 		return nil, fmt.Errorf("package %q has no projects matching the requested Windows target and configurations", pkg.RepoName)
@@ -108,6 +112,12 @@ func buildProjectConfigurations(project *denv.DevProject, options WorkspaceOptio
 		if configuration.Machine == VsMachineDefault {
 			configuration.Machine = machineFromTarget(options.BuildTarget)
 		}
+		for _, devConfig := range project.Configs {
+			if devConfig.BuildConfig.IsEqual(buildConfig) {
+				*configuration = mergeDevConfig(*configuration, devConfig)
+				break
+			}
+		}
 
 		configName := buildConfig.VisualStudio()
 		result = append(result, ProjectConfiguration{
@@ -120,6 +130,110 @@ func buildProjectConfigurations(project *denv.DevProject, options WorkspaceOptio
 		})
 	}
 	return result, nil
+}
+
+func mergeDevConfig(options VsConfiguration, config *denv.DevConfig) VsConfiguration {
+	if config.Defines != nil {
+		options.Defines = uniqueStrings(options.Defines, config.Defines.Values)
+	}
+	options.IncludePaths = uniqueStrings(options.IncludePaths, config.GetIncludeDirs())
+	libPaths := make([]string, 0, len(config.LibPaths))
+	for _, libPath := range config.LibPaths {
+		libPaths = append(libPaths, libPath.String())
+	}
+	options.LibraryPaths = uniqueStrings(options.LibraryPaths, libPaths)
+	options.Libraries = uniqueStrings(options.Libraries, config.Libs)
+	return options
+}
+
+func resolveProjectConfigurations(projects []Project) error {
+	byName := make(map[string]*Project, len(projects))
+	localConfigurations := make(map[string][]ProjectConfiguration, len(projects))
+	for i := range projects {
+		name := projects[i].Definition.Name
+		byName[name] = &projects[i]
+		localConfigurations[name] = append([]ProjectConfiguration(nil), projects[i].Configurations...)
+	}
+
+	for i := range projects {
+		dependencies, err := resolvedDependencyOrder(projects[i].Definition, byName)
+		if err != nil {
+			return err
+		}
+		resolved := make([]ProjectConfiguration, 0, len(projects[i].Configurations))
+		for _, local := range localConfigurations[projects[i].Definition.Name] {
+			options := VsConfiguration{}
+			for _, dependency := range dependencies {
+				if config, ok := findProjectConfiguration(localConfigurations[dependency.Definition.Name], local.BuildConfig); ok {
+					options = mergeVsConfiguration(options, config.Options)
+				}
+			}
+			local.Options = mergeVsConfiguration(options, local.Options)
+			resolved = append(resolved, local)
+		}
+		projects[i].Configurations = resolved
+	}
+	return nil
+}
+
+func resolvedDependencyOrder(project *denv.DevProject, projects map[string]*Project) ([]*Project, error) {
+	result := make([]*Project, 0)
+	state := make(map[string]uint8)
+	path := make([]string, 0)
+
+	var visit func(*denv.DevProject, bool) error
+	visit = func(current *denv.DevProject, root bool) error {
+		if state[current.Name] == 1 {
+			cycleStart := 0
+			for i, name := range path {
+				if name == current.Name {
+					cycleStart = i
+					break
+				}
+			}
+			cycle := append(append([]string(nil), path[cycleStart:]...), current.Name)
+			return fmt.Errorf("Visual Studio project dependency cycle: %s", strings.Join(cycle, " -> "))
+		}
+		if state[current.Name] == 2 {
+			return nil
+		}
+		state[current.Name] = 1
+		path = append(path, current.Name)
+		var dependencies []*denv.DevProject
+		if current.Dependencies != nil {
+			dependencies = append(dependencies, current.Dependencies.Values...)
+		}
+		sort.Slice(dependencies, func(i, j int) bool { return dependencies[i].Name < dependencies[j].Name })
+		for _, dependency := range dependencies {
+			resolved, ok := projects[dependency.Name]
+			if !ok {
+				continue
+			}
+			if err := visit(resolved.Definition, false); err != nil {
+				return err
+			}
+		}
+		path = path[:len(path)-1]
+		state[current.Name] = 2
+		if !root {
+			result = append(result, projects[current.Name])
+		}
+		return nil
+	}
+
+	if err := visit(project, true); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func findProjectConfiguration(configurations []ProjectConfiguration, buildConfig denv.BuildConfig) (ProjectConfiguration, bool) {
+	for _, configuration := range configurations {
+		if configuration.BuildConfig.IsEqual(buildConfig) {
+			return configuration, true
+		}
+	}
+	return ProjectConfiguration{}, false
 }
 
 func configSelected(config denv.BuildConfig, requested []denv.BuildConfig) bool {

@@ -60,13 +60,20 @@ func Generate(workspace Workspace) error {
 	}
 
 	exclusionFilter := denv.NewExclusionFilter(denv.BuildTargetWindowsX64)
-	exclusionFilterFunc := func(_filepath string) bool { return exclusionFilter.IsExcluded(_filepath) }
+
+	sourceExclusionFilterFunc := func(_filepath string) bool { return exclusionFilter.IsExcluded(_filepath) }
+	headerExclusionFilterFunc := func(_filepath string) bool { return false }
 
 	for _, project := range projects {
-		files, err := collectSourceFiles(project.Definition, exclusionFilterFunc)
+		srcFiles, err := collectSourceFiles(project.Definition, sourceExclusionFilterFunc)
 		if err != nil {
 			return fmt.Errorf("collect source files for %s: %w", project.Definition.Name, err)
 		}
+		hdrFiles, err := collectHeaderFiles(project.Definition, headerExclusionFilterFunc)
+		if err != nil {
+			return fmt.Errorf("collect header files for %s: %w", project.Definition.Name, err)
+		}
+		files := mergeSourceFiles(srcFiles, hdrFiles)
 		if err := generateProject(workspace, project, files, projectGuids); err != nil {
 			return err
 		}
@@ -143,6 +150,25 @@ func collectSourceFiles(project *denv.DevProject, exclusionFilter func(string) b
 	return files, nil
 }
 
+func collectHeaderFiles(project *denv.DevProject, exclusionFilter func(string) bool) ([]sourceFile, error) {
+	byPath := make(map[string]sourceFile)
+
+	includeDirs := project.CollectIncludeDirs()
+	for _, hdrPinnedPath := range includeDirs {
+		files := GlobFiles(filepath.Join(hdrPinnedPath.Root, hdrPinnedPath.Base), hdrPinnedPath.Sub, "**/*.*", exclusionFilter)
+		for _, file := range files {
+			byPath[file.absPath] = file
+		}
+	}
+
+	files := make([]sourceFile, 0, len(byPath))
+	for _, file := range byPath {
+		files = append(files, file)
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].absPath < files[j].absPath })
+	return files, nil
+}
+
 // -----------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------
 
@@ -190,6 +216,23 @@ func sourceTag(path string) string {
 	default:
 		return "ClInclude"
 	}
+}
+
+func mergeSourceFiles(groups ...[]sourceFile) []sourceFile {
+	byPath := make(map[string]sourceFile)
+	for _, group := range groups {
+		for _, file := range group {
+			if _, exists := byPath[file.absPath]; !exists {
+				byPath[file.absPath] = file
+			}
+		}
+	}
+	files := make([]sourceFile, 0, len(byPath))
+	for _, file := range byPath {
+		files = append(files, file)
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].absPath < files[j].absPath })
+	return files
 }
 
 func generateProject(workspace Workspace, project Project, files []sourceFile, projectGuids map[string]string) error {
@@ -276,7 +319,8 @@ func generateProject(workspace Workspace, project Project, files []sourceFile, p
 
 		var dependencies []*denv.DevProject
 		if project.Definition.Dependencies != nil {
-			dependencies = project.Definition.Dependencies.Values
+			dependencies = append(dependencies, project.Definition.Dependencies.Values...)
+			sort.Slice(dependencies, func(i, j int) bool { return dependencies[i].Name < dependencies[j].Name })
 		}
 		if len(dependencies) > 0 {
 			document.start("ItemGroup")
@@ -444,20 +488,9 @@ func generateSolution(workspace Workspace, projects []Project, projectGuids map[
 func effectiveOptions(project *denv.DevProject, config ProjectConfiguration) VsConfiguration {
 	options := config.Options
 	for _, devConfig := range project.Configs {
-		if !devConfig.BuildConfig.IsEqual(config.BuildConfig) {
-			continue
+		if devConfig.BuildConfig.IsEqual(config.BuildConfig) {
+			return mergeDevConfig(options, devConfig)
 		}
-		if devConfig.Defines != nil {
-			options.Defines = uniqueStrings(options.Defines, devConfig.Defines.Values)
-		}
-		options.IncludePaths = uniqueStrings(options.IncludePaths, devConfig.GetIncludeDirs())
-		libPaths := make([]string, 0, len(devConfig.LibPaths))
-		for _, libPath := range devConfig.LibPaths {
-			libPaths = append(libPaths, libPath.String())
-		}
-		options.LibraryPaths = uniqueStrings(options.LibraryPaths, libPaths)
-		options.Libraries = uniqueStrings(options.Libraries, devConfig.Libs)
-		break
 	}
 	return options
 }

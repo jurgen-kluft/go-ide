@@ -31,7 +31,7 @@ func TestNewConfigurationFromVars(t *testing.T) {
 	vars.Set("build.optimize", "{msvc.cl.optimize_speed}")
 	vars.Set("build.cpp_standard", "{msvc.cl.usecpp20}")
 	vars.Set("build.c_standard", "{msvc.cl.usec17}")
-	vars.Set("compiler.c.link.extra_flags", "/SUBSYSTEM:CONSOLE", "/ERRORREPORT:PROMPT", "/DYNAMICBASE", "/NXCOMPAT", "/nologo", "/MACHINE:X64", "{msvc.link.generatedebuginfo}", "/OPT:REF", "/OPT:ICF", "/LTCG", "/INCREMENTAL:NO")
+	vars.Set("compiler.c.link.extra_flags", "/SUBSYSTEM:CONSOLE", "/ERRORREPORT:PromptImmediately", "/DYNAMICBASE", "/NXCOMPAT", "/nologo", "/MACHINE:X64", "{msvc.link.generatedebuginfo}", "/OPT:REF", "/OPT:ICF", "/LTCG", "/INCREMENTAL:NO")
 	vars.Set("build.defines", "/D", "TARGET_PC", "/D_DEBUG", "TARGET_PC")
 	vars.Set("build.includes", "project/include", "shared/include")
 	vars.Set("INCLUDE", "sdk/include", "shared/include")

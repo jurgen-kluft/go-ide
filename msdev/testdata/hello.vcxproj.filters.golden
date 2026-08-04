@@ -1,16 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="source">
-      <UniqueIdentifier>{939BFB7A-49A2-8B71-D4D5-F7EA48AC08C6}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\hello\source\hello.h">
-      <Filter>source</Filter>
-    </ClInclude>
-    <ClCompile Include="..\..\hello\source\main.cpp">
-      <Filter>source</Filter>
-    </ClCompile>
+    <ClInclude Include="..\..\hello\source\hello.h"></ClInclude>
+    <ClCompile Include="..\..\hello\source\main.cpp"></ClCompile>
   </ItemGroup>
 </Project>

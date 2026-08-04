@@ -108,13 +108,13 @@ func parseVsLinkSettings(config *VsConfiguration, vars *corepkg.Vars) error {
 			config.Subsystem = VsSubsystemConsole
 		case "/subsystem:windows":
 			config.Subsystem = VsSubsystemWindows
-		case "/errorreport:prompt":
+		case "/errorreport:promptimmediately":
 			config.LinkErrorReporting = VsLinkErrorReportingPrompt
-		case "/errorreport:queue":
+		case "/errorreport:queuefornextlogin":
 			config.LinkErrorReporting = VsLinkErrorReportingQueue
-		case "/errorreport:send":
+		case "/errorreport:senderrorreport":
 			config.LinkErrorReporting = VsLinkErrorReportingSend
-		case "/errorreport:none":
+		case "/errorreport:noerrorreport":
 			config.LinkErrorReporting = VsLinkErrorReportingNone
 		case "/debug":
 			config.LinkOptions |= VsLinkOptionGenerateDebugInformation

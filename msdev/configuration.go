@@ -152,3 +152,46 @@ type VsConfiguration struct {
 	LibraryPaths       []string
 	Libraries          []string
 }
+
+func mergeVsConfiguration(base, overlay VsConfiguration) VsConfiguration {
+	if overlay.CStandard != VsCStandardDefault {
+		base.CStandard = overlay.CStandard
+	}
+	if overlay.CppStandard != VsCppStandardDefault {
+		base.CppStandard = overlay.CppStandard
+	}
+	if overlay.Optimization != VsOptimizationDefault {
+		base.Optimization = overlay.Optimization
+	}
+	if overlay.WarningLevel != VsWarningLevelDefault {
+		base.WarningLevel = overlay.WarningLevel
+	}
+	if overlay.DebugInformation != VsDebugInformationNone {
+		base.DebugInformation = overlay.DebugInformation
+	}
+	if overlay.ExceptionHandling != VsExceptionHandlingDisabled {
+		base.ExceptionHandling = overlay.ExceptionHandling
+	}
+	if overlay.FloatingPoint != VsFloatingPointDefault {
+		base.FloatingPoint = overlay.FloatingPoint
+	}
+	if overlay.InlineExpansion != VsInlineExpansionDefault {
+		base.InlineExpansion = overlay.InlineExpansion
+	}
+	if overlay.Subsystem != VsSubsystemDefault {
+		base.Subsystem = overlay.Subsystem
+	}
+	if overlay.LinkErrorReporting != VsLinkErrorReportingDefault {
+		base.LinkErrorReporting = overlay.LinkErrorReporting
+	}
+	if overlay.Machine != VsMachineDefault {
+		base.Machine = overlay.Machine
+	}
+	base.CompileOptions |= overlay.CompileOptions
+	base.LinkOptions |= overlay.LinkOptions
+	base.Defines = uniqueStrings(base.Defines, overlay.Defines)
+	base.IncludePaths = uniqueStrings(base.IncludePaths, overlay.IncludePaths)
+	base.LibraryPaths = uniqueStrings(base.LibraryPaths, overlay.LibraryPaths)
+	base.Libraries = uniqueStrings(base.Libraries, overlay.Libraries)
+	return base
+}

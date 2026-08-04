@@ -8,6 +8,7 @@ import (
 
 	corepkg "github.com/jurgen-kluft/gcore"
 	"github.com/jurgen-kluft/gide/denv"
+	"github.com/jurgen-kluft/gide/graph"
 )
 
 func TestGeneratePackage(t *testing.T) {
@@ -33,9 +34,13 @@ func TestGeneratePackage(t *testing.T) {
 
 	outputDir := filepath.Join(root, "target", "msdev")
 	options := WorkspaceOptions{
-		OutputDir:    outputDir,
-		BuildTarget:  denv.BuildTargetWindowsX64,
-		BuildConfigs: []denv.BuildConfig{denv.NewDebugDevConfig()},
+		OutputDir:       outputDir,
+		BuildTarget:     denv.BuildTargetWindowsX64,
+		BuildConfigs:    []denv.BuildConfig{denv.NewDebugDevConfig()},
+		OSTargetVersion: "10.0.22621.0",
+		VisualStudio: graph.WorkspaceOptionsVs{
+			PlatformToolset: "v142",
+		},
 		ResolveVars: func(_ *denv.DevProject, _ denv.BuildTarget, _ denv.BuildConfig, vars *corepkg.Vars) {
 			vars.Set("build.cpp_standard", "/std:c++20")
 			vars.Set("compiler.warning_flags", "/W4")
@@ -54,11 +59,11 @@ func TestGeneratePackage(t *testing.T) {
 		t.Fatalf("workspace projects/configurations = %d/%d, want 1/1", len(workspace.Projects), len(workspace.Projects[0].Configurations))
 	}
 	configuration := workspace.Projects[0].Configurations[0]
-	if configuration.Options.CppStandard != VsCppStandard20 {
-		t.Errorf("CppStandard = %v, want %v", configuration.Options.CppStandard, VsCppStandard20)
+	if configuration.OptionsVs.CppStandard != VsCppStandard20 {
+		t.Errorf("CppStandard = %v, want %v", configuration.OptionsVs.CppStandard, VsCppStandard20)
 	}
-	if configuration.Options.LinkErrorReporting != VsLinkErrorReportingPrompt {
-		t.Errorf("LinkErrorReporting = %v, want %v", configuration.Options.LinkErrorReporting, VsLinkErrorReportingPrompt)
+	if configuration.OptionsVs.LinkErrorReporting != VsLinkErrorReportingPrompt {
+		t.Errorf("LinkErrorReporting = %v, want %v", configuration.OptionsVs.LinkErrorReporting, VsLinkErrorReportingPrompt)
 	}
 	if configuration.TargetExtension != ".exe" {
 		t.Errorf("TargetExtension = %q, want .exe", configuration.TargetExtension)
@@ -73,6 +78,8 @@ func TestGeneratePackage(t *testing.T) {
 	}
 	generated := string(projectFile)
 	for _, expected := range []string{
+		"<WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>",
+		"<PlatformToolset>v142</PlatformToolset>",
 		"<LanguageStandard>stdcpp20</LanguageStandard>",
 		"<WarningLevel>Level4</WarningLevel>",
 		"<LinkErrorReporting>PromptImmediately</LinkErrorReporting>",
@@ -116,7 +123,7 @@ func TestBuildWorkspaceUsesPackageVars(t *testing.T) {
 	if len(workspace.Projects) != 1 || len(workspace.Projects[0].Configurations) != 1 {
 		t.Fatalf("workspace projects/configurations = %d/%d, want 1/1", len(workspace.Projects), len(workspace.Projects[0].Configurations))
 	}
-	configuration := workspace.Projects[0].Configurations[0].Options
+	configuration := workspace.Projects[0].Configurations[0].OptionsVs
 	if configuration.CppStandard != VsCppStandard17 {
 		t.Errorf("CppStandard = %v, want %v", configuration.CppStandard, VsCppStandard17)
 	}
@@ -186,14 +193,14 @@ func TestBuildWorkspaceResolvesDependencyConfigurations(t *testing.T) {
 		t.Fatalf("BuildWorkspace() error = %v", err)
 	}
 
-	var appProject Project
+	var appProject *Project
 	for _, project := range workspace.Projects {
 		if project.Definition.Name == app.Name {
 			appProject = project
 			break
 		}
 	}
-	appOptions := appProject.Configurations[0].Options
+	appOptions := appProject.Configurations[0].OptionsVs
 	for _, expected := range []string{"BASE_DEFINE", "MIDDLE_DEFINE", "SIDE_DEFINE", "APP_DEFINE"} {
 		if !containsString(appOptions.Defines, expected) {
 			t.Errorf("resolved defines %v do not contain %q", appOptions.Defines, expected)
@@ -308,7 +315,7 @@ func TestBuildWorkspaceRequiresExactDependencyConfig(t *testing.T) {
 		t.Fatalf("BuildWorkspace() error = %v", err)
 	}
 	for _, project := range workspace.Projects {
-		if project.Definition.Name == app.Name && containsString(project.Configurations[0].Options.Defines, "DEPENDENCY_DEV") {
+		if project.Definition.Name == app.Name && containsString(project.Configurations[0].OptionsVs.Defines, "DEPENDENCY_DEV") {
 			t.Errorf("Debug configuration inherited non-exact DebugDev dependency configuration")
 		}
 	}

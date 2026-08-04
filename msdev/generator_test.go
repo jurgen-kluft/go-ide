@@ -46,17 +46,18 @@ func TestGenerateVs2022Workspace(t *testing.T) {
 	workspace := Workspace{
 		Name:           "hello-workspace",
 		OutputDir:      outputDir,
+		BuildTarget:    denv.BuildTargetWindowsX64,
 		StartupProject: "hello",
-		Projects: []Project{{
+		Projects: []*Project{{
 			Definition: project,
-			Configurations: []ProjectConfiguration{
+			Configurations: []*ProjectConfiguration{
 				{
 					BuildConfig:     denv.NewDebugDevConfig(),
 					OutputDir:       filepath.Join(root, "bin", "debug"),
 					IntermediateDir: filepath.Join(root, "obj", "debug"),
 					TargetName:      "hello",
 					TargetExtension: ".exe",
-					Options: VsConfiguration{
+					OptionsVs: &VsConfiguration{
 						CppStandard:      VsCppStandard20,
 						WarningLevel:     VsWarningLevel4,
 						DebugInformation: VsDebugInformationProgramDatabase,
@@ -68,7 +69,7 @@ func TestGenerateVs2022Workspace(t *testing.T) {
 				},
 				{
 					BuildConfig: denv.NewReleaseDevConfig(),
-					Options: VsConfiguration{
+					OptionsVs: &VsConfiguration{
 						CppStandard:  VsCppStandard20,
 						Optimization: VsOptimizationSpeed,
 						Machine:      VsMachineX64,
@@ -128,7 +129,7 @@ func TestGenerateProjectAndFiltersIncludeHeaders(t *testing.T) {
 	}
 
 	workspace := Workspace{OutputDir: outputDir}
-	project := Project{Definition: &denv.DevProject{Name: "hello"}}
+	project := &Project{Definition: &denv.DevProject{Name: "hello"}}
 	group := graph.NewFileEntryDict(filepath.Join(root, "hello"))
 	header := group.Add(filepath.Join("include", "public", "hello.h"))
 	virtualFolders := graph.NewVirtualDirectories(group.Path)
@@ -161,7 +162,7 @@ func TestGenerateRejectsProjectWithoutConfigurations(t *testing.T) {
 	err := Generate(Workspace{
 		Name:      "invalid",
 		OutputDir: t.TempDir(),
-		Projects:  []Project{{Definition: project}},
+		Projects:  []*Project{{Definition: project}},
 	})
 	if err == nil || !strings.Contains(err.Error(), "requires at least one configuration") {
 		t.Fatalf("Generate() error = %v, want missing configuration error", err)

@@ -1,157 +1,84 @@
 package msdev
 
-type VsCStandard uint8
+import "github.com/jurgen-kluft/gide/graph"
+
+type VsCStandard = graph.VsCStandard
+type VsCppStandard = graph.VsCppStandard
+type VsOptimization = graph.VsOptimization
+type VsWarningLevel = graph.VsWarningLevel
+type VsDebugInformation = graph.VsDebugInformation
+type VsExceptionHandling = graph.VsExceptionHandling
+type VsFloatingPointModel = graph.VsFloatingPointModel
+type VsInlineExpansion = graph.VsInlineExpansion
+type VsSubsystem = graph.VsSubsystem
+type VsLinkErrorReporting = graph.VsLinkErrorReporting
+type VsMachine = graph.VsMachine
+type VsCompileOptions = graph.VsCompileOptions
+type VsLinkOptions = graph.VsLinkOptions
+type VsConfiguration = graph.VsConfiguration
 
 const (
-	VsCStandardDefault VsCStandard = iota
-	VsCStandard11
-	VsCStandard17
-	VsCStandardLatest
+	VsCStandardDefault                    = graph.VsCStandardDefault
+	VsCStandard11                         = graph.VsCStandard11
+	VsCStandard17                         = graph.VsCStandard17
+	VsCStandardLatest                     = graph.VsCStandardLatest
+	VsCppStandardDefault                  = graph.VsCppStandardDefault
+	VsCppStandard14                       = graph.VsCppStandard14
+	VsCppStandard17                       = graph.VsCppStandard17
+	VsCppStandard20                       = graph.VsCppStandard20
+	VsCppStandardLatest                   = graph.VsCppStandardLatest
+	VsOptimizationDefault                 = graph.VsOptimizationDefault
+	VsOptimizationDisabled                = graph.VsOptimizationDisabled
+	VsOptimizationSize                    = graph.VsOptimizationSize
+	VsOptimizationSpeed                   = graph.VsOptimizationSpeed
+	VsWarningLevelDefault                 = graph.VsWarningLevelDefault
+	VsWarningLevelDisabled                = graph.VsWarningLevelDisabled
+	VsWarningLevel1                       = graph.VsWarningLevel1
+	VsWarningLevel2                       = graph.VsWarningLevel2
+	VsWarningLevel3                       = graph.VsWarningLevel3
+	VsWarningLevel4                       = graph.VsWarningLevel4
+	VsDebugInformationNone                = graph.VsDebugInformationNone
+	VsDebugInformationProgramDatabase     = graph.VsDebugInformationProgramDatabase
+	VsExceptionHandlingDisabled           = graph.VsExceptionHandlingDisabled
+	VsExceptionHandlingCpp                = graph.VsExceptionHandlingCpp
+	VsFloatingPointDefault                = graph.VsFloatingPointDefault
+	VsFloatingPointPrecise                = graph.VsFloatingPointPrecise
+	VsFloatingPointStrict                 = graph.VsFloatingPointStrict
+	VsFloatingPointFast                   = graph.VsFloatingPointFast
+	VsInlineExpansionDefault              = graph.VsInlineExpansionDefault
+	VsInlineExpansionDisabled             = graph.VsInlineExpansionDisabled
+	VsInlineExpansionExplicit             = graph.VsInlineExpansionExplicit
+	VsInlineExpansionAnySuitable          = graph.VsInlineExpansionAnySuitable
+	VsSubsystemDefault                    = graph.VsSubsystemDefault
+	VsSubsystemConsole                    = graph.VsSubsystemConsole
+	VsSubsystemWindows                    = graph.VsSubsystemWindows
+	VsLinkErrorReportingDefault           = graph.VsLinkErrorReportingDefault
+	VsLinkErrorReportingPrompt            = graph.VsLinkErrorReportingPrompt
+	VsLinkErrorReportingQueue             = graph.VsLinkErrorReportingQueue
+	VsLinkErrorReportingSend              = graph.VsLinkErrorReportingSend
+	VsLinkErrorReportingNone              = graph.VsLinkErrorReportingNone
+	VsMachineDefault                      = graph.VsMachineDefault
+	VsMachineX86                          = graph.VsMachineX86
+	VsMachineX64                          = graph.VsMachineX64
+	VsMachineArm                          = graph.VsMachineArm
+	VsMachineArm64                        = graph.VsMachineArm64
+	VsCompileOptionNone                   = graph.VsCompileOptionNone
+	VsCompileOptionMultiProcessor         = graph.VsCompileOptionMultiProcessor
+	VsCompileOptionTreatWarningsAsErrors  = graph.VsCompileOptionTreatWarningsAsErrors
+	VsCompileOptionIntrinsicFunctions     = graph.VsCompileOptionIntrinsicFunctions
+	VsCompileOptionSuppressStartupBanner  = graph.VsCompileOptionSuppressStartupBanner
+	VsCompileOptionFullPathDiagnostics    = graph.VsCompileOptionFullPathDiagnostics
+	VsCompileOptionColumnDiagnostics      = graph.VsCompileOptionColumnDiagnostics
+	VsLinkOptionNone                      = graph.VsLinkOptionNone
+	VsLinkOptionGenerateDebugInformation  = graph.VsLinkOptionGenerateDebugInformation
+	VsLinkOptionDynamicBase               = graph.VsLinkOptionDynamicBase
+	VsLinkOptionDataExecutionPrevention   = graph.VsLinkOptionDataExecutionPrevention
+	VsLinkOptionSuppressStartupBanner     = graph.VsLinkOptionSuppressStartupBanner
+	VsLinkOptionOptimizeReferences        = graph.VsLinkOptionOptimizeReferences
+	VsLinkOptionComdatFolding             = graph.VsLinkOptionComdatFolding
+	VsLinkOptionLinkTimeCodeGeneration    = graph.VsLinkOptionLinkTimeCodeGeneration
+	VsLinkOptionDisableIncrementalLinking = graph.VsLinkOptionDisableIncrementalLinking
 )
-
-type VsCppStandard uint8
-
-const (
-	VsCppStandardDefault VsCppStandard = iota
-	VsCppStandard14
-	VsCppStandard17
-	VsCppStandard20
-	VsCppStandardLatest
-)
-
-type VsOptimization uint8
-
-const (
-	VsOptimizationDefault VsOptimization = iota
-	VsOptimizationDisabled
-	VsOptimizationSize
-	VsOptimizationSpeed
-)
-
-type VsWarningLevel uint8
-
-const (
-	VsWarningLevelDefault VsWarningLevel = iota
-	VsWarningLevelDisabled
-	VsWarningLevel1
-	VsWarningLevel2
-	VsWarningLevel3
-	VsWarningLevel4
-)
-
-type VsDebugInformation uint8
-
-const (
-	VsDebugInformationNone VsDebugInformation = iota
-	VsDebugInformationProgramDatabase
-)
-
-type VsExceptionHandling uint8
-
-const (
-	VsExceptionHandlingDisabled VsExceptionHandling = iota
-	VsExceptionHandlingCpp
-)
-
-type VsFloatingPointModel uint8
-
-const (
-	VsFloatingPointDefault VsFloatingPointModel = iota
-	VsFloatingPointPrecise
-	VsFloatingPointStrict
-	VsFloatingPointFast
-)
-
-type VsInlineExpansion uint8
-
-const (
-	VsInlineExpansionDefault VsInlineExpansion = iota
-	VsInlineExpansionDisabled
-	VsInlineExpansionExplicit
-	VsInlineExpansionAnySuitable
-)
-
-type VsSubsystem uint8
-
-const (
-	VsSubsystemDefault VsSubsystem = iota
-	VsSubsystemConsole
-	VsSubsystemWindows
-)
-
-type VsLinkErrorReporting uint8
-
-const (
-	VsLinkErrorReportingDefault VsLinkErrorReporting = iota
-	VsLinkErrorReportingPrompt
-	VsLinkErrorReportingQueue
-	VsLinkErrorReportingSend
-	VsLinkErrorReportingNone
-)
-
-type VsMachine uint8
-
-const (
-	VsMachineDefault VsMachine = iota
-	VsMachineX86
-	VsMachineX64
-	VsMachineArm
-	VsMachineArm64
-)
-
-type VsCompileOptions uint64
-
-const (
-	VsCompileOptionNone           VsCompileOptions = 0
-	VsCompileOptionMultiProcessor VsCompileOptions = 1 << (iota - 1)
-	VsCompileOptionTreatWarningsAsErrors
-	VsCompileOptionIntrinsicFunctions
-	VsCompileOptionSuppressStartupBanner
-	VsCompileOptionFullPathDiagnostics
-	VsCompileOptionColumnDiagnostics
-)
-
-func (options VsCompileOptions) Has(option VsCompileOptions) bool {
-	return options&option == option
-}
-
-type VsLinkOptions uint64
-
-const (
-	VsLinkOptionNone                     VsLinkOptions = 0
-	VsLinkOptionGenerateDebugInformation VsLinkOptions = 1 << (iota - 1)
-	VsLinkOptionDynamicBase
-	VsLinkOptionDataExecutionPrevention
-	VsLinkOptionSuppressStartupBanner
-	VsLinkOptionOptimizeReferences
-	VsLinkOptionComdatFolding
-	VsLinkOptionLinkTimeCodeGeneration
-	VsLinkOptionDisableIncrementalLinking
-)
-
-func (options VsLinkOptions) Has(option VsLinkOptions) bool {
-	return options&option == option
-}
-
-type VsConfiguration struct {
-	CStandard          VsCStandard
-	CppStandard        VsCppStandard
-	Optimization       VsOptimization
-	WarningLevel       VsWarningLevel
-	DebugInformation   VsDebugInformation
-	ExceptionHandling  VsExceptionHandling
-	FloatingPoint      VsFloatingPointModel
-	InlineExpansion    VsInlineExpansion
-	Subsystem          VsSubsystem
-	LinkErrorReporting VsLinkErrorReporting
-	Machine            VsMachine
-	CompileOptions     VsCompileOptions
-	LinkOptions        VsLinkOptions
-	Defines            []string
-	IncludePaths       []string
-	LibraryPaths       []string
-	Libraries          []string
-}
 
 func mergeVsConfiguration(base, overlay VsConfiguration) VsConfiguration {
 	if overlay.CStandard != VsCStandardDefault {

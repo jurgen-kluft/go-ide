@@ -1,233 +1,181 @@
 package xcode
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
 
+	corepkg "github.com/jurgen-kluft/gcore"
 	"github.com/jurgen-kluft/gide/denv"
 	"github.com/jurgen-kluft/gide/graph"
 )
 
-type CppStdType uint8
+type CppStdType = graph.CppStdType
+
+type Workspace = graph.Workspace
+type WorkspaceOptions = graph.WorkspaceOptions
+type VarsResolver = graph.VarsResolver
+type ProjectSettings = graph.ProjectSettings
+type Project = graph.Project
+type ProjectList = graph.ProjectList
+type ProjectGroup = graph.ProjectGroup
+type ProjectGroups = graph.ProjectGroups
 
 const (
-	CppStdUnknown CppStdType = iota
-	CppStd11
-	CppStd14
-	CppStd17
-	CppStd20
-	CppStdLatest
+	CppStdUnknown = graph.CppStdUnknown
+	CppStd11      = graph.CppStd11
+	CppStd14      = graph.CppStd14
+	CppStd17      = graph.CppStd17
+	CppStd20      = graph.CppStd20
+	CppStdLatest  = graph.CppStdLatest
 )
 
-type Workspace struct {
-	WorkspaceName   string
-	GenerateAbsPath string
-	BuildTarget     denv.BuildTarget
-	CppStd          CppStdType
-	ProjectList     *ProjectList
-	ProjectGroups   *ProjectGroups
-}
-
 func NewWorkspace(name, outputDir string, buildTarget denv.BuildTarget) *Workspace {
-	return &Workspace{
-		WorkspaceName:   name,
-		GenerateAbsPath: outputDir,
-		BuildTarget:     buildTarget,
-		CppStd:          CppStd17,
-		ProjectList:     NewProjectList(),
-		ProjectGroups:   NewProjectGroups(),
-	}
-}
-
-func (workspace *Workspace) AddProject(project *Project, group string) {
-	workspace.ProjectList.Add(project)
-	workspace.ProjectGroups.Add(project, group)
-	sort.Slice(workspace.ProjectList.Values, func(i, j int) bool {
-		return workspace.ProjectList.Values[i].Name < workspace.ProjectList.Values[j].Name
-	})
-}
-
-func (workspace *Workspace) Validate() error {
-	if workspace == nil {
-		return errors.New("Xcode workspace is nil")
-	}
-	if workspace.WorkspaceName == "" {
-		return errors.New("Xcode workspace name is required")
-	}
-	if workspace.GenerateAbsPath == "" {
-		return errors.New("Xcode workspace output directory is required")
-	}
-	if !workspace.BuildTarget.Mac() && !workspace.BuildTarget.AppleiOS() {
-		return errors.New("Xcode workspace requires a macOS or iOS build target")
-	}
-	if workspace.ProjectList == nil || len(workspace.ProjectList.Values) == 0 {
-		return errors.New("Xcode workspace requires at least one project")
-	}
-	if workspace.ProjectGroups == nil || workspace.ProjectGroups.Root == nil {
-		return errors.New("Xcode workspace project groups are not initialized")
-	}
-	for _, project := range workspace.ProjectList.Values {
-		if project == nil {
-			return errors.New("Xcode workspace contains a nil project")
-		}
-		if project.Resolved == nil || project.Resolved.Configs == nil || project.Resolved.Configs.First() == nil {
-			return fmt.Errorf("Xcode project %q has no resolved configurations", project.Name)
-		}
-		if project.Settings == nil || project.Dependencies == nil || project.VirtualFolders == nil {
-			return fmt.Errorf("Xcode project %q is not initialized", project.Name)
-		}
-		for _, configuration := range project.Resolved.Configs.Values {
-			if configuration == nil || configuration.Resolved == nil || configuration.Resolved.OutputTarget == nil || configuration.Resolved.OutputTarget.Path == "" || configuration.Resolved.BuildTmpDir == nil || configuration.Resolved.BuildTmpDir.Path == "" {
-				return fmt.Errorf("Xcode project %q has an unresolved configuration", project.Name)
-			}
-		}
-	}
-	return validateProjectGroup(workspace.ProjectGroups.Root, make(map[*ProjectGroup]bool))
-}
-
-func validateProjectGroup(group *ProjectGroup, visiting map[*ProjectGroup]bool) error {
-	if visiting[group] {
-		return fmt.Errorf("Xcode workspace project group cycle at %q", group.Path)
-	}
-	visiting[group] = true
-	for _, child := range group.Children {
-		if child == nil {
-			return fmt.Errorf("Xcode workspace project group %q contains a nil child", group.Path)
-		}
-		if err := validateProjectGroup(child, visiting); err != nil {
-			return err
-		}
-	}
-	delete(visiting, group)
-	return nil
-}
-
-type ProjectSettings struct {
-	Group              string
-	IsGuiApp           bool
-	CppAsObjCpp        bool
-	MultiThreadedBuild bool
-	PchHeader          string
-	Xcode              struct {
-		BundleIdentifier string
-	}
-}
-
-type Project struct {
-	Name            string
-	BuildType       denv.BuildType
-	ProjectAbsPath  string
-	GenerateAbsPath string
-	Group           *ProjectGroup
-	SrcFileGroups   []*graph.FileEntryDict
-	ResFileGroups   []*graph.FileEntryDict
-	VirtualFolders  *graph.VirtualDirectories
-	Settings        *ProjectSettings
-	Dependencies    *ProjectList
-	Resolved        *ProjectResolved
+	workspace := graph.NewWorkspace(name, outputDir, buildTarget)
+	workspace.OptionsXcode = &graph.WorkspaceOptionsXcode{CppStd: graph.CppStd17}
+	return workspace
 }
 
 func NewProject(name string, buildType denv.BuildType, projectDir, outputDir string) *Project {
-	settings := &ProjectSettings{}
-	settings.Xcode.BundleIdentifier = "$(PRODUCT_BUNDLE_IDENTIFIER)"
-	project := &Project{
+	project := &graph.Project{
 		Name:            name,
 		BuildType:       buildType,
 		ProjectAbsPath:  projectDir,
 		GenerateAbsPath: outputDir,
-		SrcFileGroups:   []*graph.FileEntryDict{graph.NewFileEntryDict(projectDir)},
-		ResFileGroups:   []*graph.FileEntryDict{graph.NewFileEntryDict(projectDir)},
-		VirtualFolders:  graph.NewVirtualDirectories(projectDir),
-		Settings:        settings,
-		Dependencies:    NewProjectList(),
-		Resolved:        NewProjectResolved(),
 	}
-	project.Resolved.HasOutputTarget = buildType.IsExecutable() || buildType.IsStaticLibrary() || buildType.IsDynamicLibrary()
-	project.Resolved.GenDataXcode.XcodeProj.Init(filepath.Join(outputDir, name+".xcodeproj"), true)
-	project.Resolved.GenDataXcode.PbxProj = filepath.Join(project.Resolved.GenDataXcode.XcodeProj.Path, "project.pbxproj")
+	initializeXcodeProject(project)
 	return project
 }
 
-func (project *Project) CollectFiles(definition *denv.DevProject, target denv.BuildTarget) error {
-	files, err := graph.CollectProjectFiles(definition, target)
+func BuildWorkspace(pkg *denv.Package, options WorkspaceOptions) (*Workspace, error) {
+	requestedCppStd := options.Xcode.CppStd
+	var workspace *Workspace
+	return graph.BuildWorkspace(pkg, options, graph.WorkspaceBuilderBackend{
+		Name: "Xcode",
+		ValidateTarget: func(target denv.BuildTarget) error {
+			if !target.Mac() && !target.AppleiOS() {
+				return fmt.Errorf("Xcode generation requires a macOS or iOS target")
+			}
+			return nil
+		},
+		InitializeWorkspace: func(sharedWorkspace *graph.Workspace, options graph.WorkspaceOptions) {
+			workspace = sharedWorkspace
+			xcodeOptions := options.Xcode
+			if xcodeOptions.CppStd == graph.CppStdUnknown {
+				xcodeOptions.CppStd = graph.CppStd17
+			}
+			workspace.OptionsXcode = &xcodeOptions
+		},
+		BuildProjectConfigurations: func(project *denv.DevProject, options graph.WorkspaceOptions) ([]*graph.ProjectConfiguration, error) {
+			configurations, cppStd, err := buildProjectConfigurations(project, options)
+			if err == nil && requestedCppStd == graph.CppStdUnknown && cppStd != graph.CppStdUnknown {
+				workspace.OptionsXcode.CppStd = cppStd
+			}
+			return configurations, err
+		},
+		InitializeProject: func(project *graph.Project, options graph.WorkspaceOptions) (string, error) {
+			initializeXcodeProject(project)
+			if err := project.CollectFiles(project.Definition, options.BuildTarget); err != nil {
+				return "", fmt.Errorf("collect Xcode project %s files: %w", project.Name, err)
+			}
+			if project.TypeIsExe() {
+				return "applications", nil
+			}
+			return "libraries", nil
+		},
+		ResolveConfiguration: resolveProjectConfiguration,
+	})
+}
+
+func GeneratePackage(pkg *denv.Package, options WorkspaceOptions) error {
+	workspace, err := BuildWorkspace(pkg, options)
 	if err != nil {
 		return err
 	}
-	project.SrcFileGroups = files.Groups
-	project.VirtualFolders = files.VirtualFolders
+	return Generate(workspace)
+}
+
+func initializeXcodeProject(project *Project) {
+	settings := &graph.ProjectSettings{}
+	settings.Xcode.BundleIdentifier = "$(PRODUCT_BUNDLE_IDENTIFIER)"
+	project.Files = &graph.ProjectFiles{
+		Groups:         []*graph.FileEntryDict{graph.NewFileEntryDict(project.ProjectAbsPath)},
+		VirtualFolders: graph.NewVirtualDirectories(project.ProjectAbsPath),
+	}
+	project.ResourceGroups = []*graph.FileEntryDict{graph.NewFileEntryDict(project.ProjectAbsPath)}
+	project.Settings = settings
+	project.Dependencies = graph.NewProjectList()
+	if project.Configurations == nil {
+		project.Configurations = make([]*graph.ProjectConfiguration, 0)
+	}
+	project.Resolved = graph.NewProjectResolved()
+	project.Resolved.HasOutputTarget = project.BuildType.IsExecutable() || project.BuildType.IsStaticLibrary() || project.BuildType.IsDynamicLibrary()
+	project.Resolved.GenDataXcode.XcodeProj.Init(filepath.Join(project.GenerateAbsPath, project.Name+".xcodeproj"), true)
+	project.Resolved.GenDataXcode.PbxProj = filepath.Join(project.Resolved.GenDataXcode.XcodeProj.Path, "project.pbxproj")
+}
+
+func buildProjectConfigurations(project *denv.DevProject, options WorkspaceOptions) ([]*graph.ProjectConfiguration, CppStdType, error) {
+	configs := make([]denv.BuildConfig, 0, len(project.Configs))
+	for _, devConfig := range project.Configs {
+		if graph.ConfigSelected(devConfig.BuildConfig, options.BuildConfigs) {
+			configs = append(configs, devConfig.BuildConfig)
+		}
+	}
+	sort.Slice(configs, func(i, j int) bool { return configs[i].String() < configs[j].String() })
+	result := make([]*graph.ProjectConfiguration, 0, len(configs))
+	cppStd := CppStdUnknown
+	for _, buildConfig := range configs {
+		vars := corepkg.NewVars(corepkg.VarsFormatCurlyBraces)
+		options.ResolveVars(project, options.BuildTarget, buildConfig, vars)
+		configuration, parsedCppStd, err := NewConfigurationFromVars(vars, options.BuildTarget, buildConfig)
+		if err != nil {
+			return nil, CppStdUnknown, fmt.Errorf("create Xcode configuration for %s/%s: %w", project.Name, buildConfig.String(), err)
+		}
+		if parsedCppStd != CppStdUnknown {
+			cppStd = parsedCppStd
+		}
+		if options.OSTargetVersion != "" {
+			if options.BuildTarget.AppleiOS() {
+				configuration.XcodeSettings.Set("IPHONEOS_DEPLOYMENT_TARGET", options.OSTargetVersion)
+			} else {
+				configuration.XcodeSettings.Set("MACOSX_DEPLOYMENT_TARGET", options.OSTargetVersion)
+			}
+		}
+		for _, devConfig := range project.Configs {
+			if devConfig.BuildConfig.IsEqual(buildConfig) {
+				mergeXcodeDevConfig(configuration, devConfig)
+				break
+			}
+		}
+		result = append(result, &graph.ProjectConfiguration{
+			BuildTarget:  options.BuildTarget,
+			BuildConfig:  buildConfig,
+			OptionsXcode: configuration,
+		})
+	}
+	return result, cppStd, nil
+}
+
+func resolveProjectConfiguration(project *graph.Project, local *graph.ProjectConfiguration, dependencies []*graph.ProjectConfiguration) error {
+	xcodeDependencies := make([]*graph.XcodeConfiguration, 0, len(dependencies))
+	for _, dependency := range dependencies {
+		xcodeDependencies = append(xcodeDependencies, dependency.OptionsXcode)
+	}
+	resolved := local.OptionsXcode.Resolve(project, project.GenerateAbsPath, xcodeDependencies...)
+	local.OptionsXcode = resolved
+	local.OutputTarget = resolved.Resolved.OutputTarget
+	local.BuildTmpDir = resolved.Resolved.BuildTmpDir
 	return nil
 }
 
-func (project *Project) TypeIsExe() bool {
-	return project.BuildType.IsExecutable()
-}
-
-func (project *Project) TypeIsDll() bool {
-	return project.BuildType.IsDynamicLibrary()
-}
-
-func (project *Project) TypeIsLib() bool {
-	return project.BuildType.IsStaticLibrary() || project.BuildType.IsDynamicLibrary()
-}
-
-func (project *Project) TypeIsExeOrDll() bool {
-	return project.TypeIsExe() || project.TypeIsDll()
-}
-
-type ProjectList struct {
-	Values []*Project
-}
-
 func NewProjectList() *ProjectList {
-	return &ProjectList{Values: make([]*Project, 0)}
-}
-
-func (projects *ProjectList) Add(project *Project) {
-	projects.Values = append(projects.Values, project)
-}
-
-type ProjectGroup struct {
-	Path     string
-	Children []*ProjectGroup
-	Projects []*Project
-	Parent   *ProjectGroup
+	return graph.NewProjectList()
 }
 
 func NewProjectGroup(path string) *ProjectGroup {
-	return &ProjectGroup{Path: path, Children: make([]*ProjectGroup, 0), Projects: make([]*Project, 0)}
-}
-
-type ProjectGroups struct {
-	Root   *ProjectGroup
-	byPath map[string]*ProjectGroup
+	return graph.NewProjectGroup(path)
 }
 
 func NewProjectGroups() *ProjectGroups {
-	root := NewProjectGroup("<group_root>")
-	return &ProjectGroups{Root: root, byPath: map[string]*ProjectGroup{".": root}}
-}
-
-func (groups *ProjectGroups) Add(project *Project, path string) {
-	group := groups.group(path)
-	project.Group = group
-	project.Settings.Group = path
-	group.Projects = append(group.Projects, project)
-}
-
-func (groups *ProjectGroups) group(path string) *ProjectGroup {
-	if path == "" || path == "." {
-		return groups.Root
-	}
-	if group, ok := groups.byPath[path]; ok {
-		return group
-	}
-	parent := groups.group(filepath.Dir(path))
-	group := NewProjectGroup(path)
-	group.Parent = parent
-	parent.Children = append(parent.Children, group)
-	sort.Slice(parent.Children, func(i, j int) bool { return parent.Children[i].Path < parent.Children[j].Path })
-	groups.byPath[path] = group
-	return group
+	return graph.NewProjectGroups()
 }

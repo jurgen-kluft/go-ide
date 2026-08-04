@@ -12,30 +12,26 @@ type XcodeGenerator struct {
 	Workspace *Workspace
 }
 
-func NewXcodeGenerator(ws *Workspace) *XcodeGenerator {
-	return &XcodeGenerator{
-		Workspace: ws,
-	}
-}
-
-func (g *XcodeGenerator) Generate() error {
-	if g == nil || g.Workspace == nil {
+func Generate(ws *Workspace) error {
+	if ws == nil {
 		return errors.New("Xcode workspace is nil")
 	}
-	if err := g.Workspace.Validate(); err != nil {
+	if err := ws.Validate(); err != nil {
 		return err
 	}
+
+	g := XcodeGenerator{Workspace: ws}
 	return g.genWorkSpace()
 }
 
 func (g *XcodeGenerator) genWorkSpace() error {
-	xcodeWorkspace := filepath.Join(g.Workspace.GenerateAbsPath, g.Workspace.WorkspaceName+".xcworkspace")
+	xcodeWorkspace := filepath.Join(g.Workspace.OutputDir, g.Workspace.Name+".xcworkspace")
 
-	for _, proj := range g.Workspace.ProjectList.Values {
+	for _, proj := range g.Workspace.Projects {
 		g.genProjectGenUuid(proj)
 	}
 
-	for _, proj := range g.Workspace.ProjectList.Values {
+	for _, proj := range g.Workspace.Projects {
 		if err := g.genProject(proj); err != nil {
 			return err
 		}
@@ -78,7 +74,7 @@ func (g *XcodeGenerator) genProjectGenUuid(proj *Project) {
 	proj.Resolved.GenDataXcode = NewXcodeProjectConfig()
 
 	gd := proj.Resolved.GenDataXcode
-	gd.XcodeProj.Init(filepath.Join(g.Workspace.GenerateAbsPath, proj.Name+".xcodeproj"), true)
+	gd.XcodeProj.Init(filepath.Join(g.Workspace.OutputDir, proj.Name+".xcodeproj"), true)
 	gd.PbxProj = filepath.Join(gd.XcodeProj.Path, "project.pbxproj")
 	gd.Uuid = corepkg.GenerateUUID()
 	gd.TargetUuid = corepkg.GenerateUUID()
@@ -89,12 +85,12 @@ func (g *XcodeGenerator) genProjectGenUuid(proj *Project) {
 	gd.DependencyTargetUuid = corepkg.GenerateUUID()
 	gd.DependencyTargetProxyUuid = corepkg.GenerateUUID()
 
-	groups := make([]*FileEntryDict, 0, len(proj.SrcFileGroups)+len(proj.ResFileGroups))
-	groups = append(groups, proj.SrcFileGroups...)
-	groups = append(groups, proj.ResFileGroups...)
-	proj.VirtualFolders.EnsureUUIDs(proj.Name, groups)
+	groups := make([]*FileEntryDict, 0, len(proj.Files.Groups)+len(proj.ResourceGroups))
+	groups = append(groups, proj.Files.Groups...)
+	groups = append(groups, proj.ResourceGroups...)
+	proj.Files.VirtualFolders.EnsureUUIDs(proj.Name, groups)
 
-	for _, config := range proj.Resolved.Configs.Values {
+	for _, config := range proj.XcodeConfigurations() {
 		config.GenDataXcode.ProjectConfigUuid = corepkg.GenerateUUID()
 		config.GenDataXcode.TargetUuid = corepkg.GenerateUUID()
 		config.GenDataXcode.TargetConfigUuid = corepkg.GenerateUUID()
@@ -287,7 +283,7 @@ func (g *XcodeGenerator) genProjectDependencies(wr *XcodeWriter, proj *Project) 
 			wr.member("isa", "PBXGroup")
 			{
 				scope := wr.NewArrayScope("children")
-				for _, g := range proj.ResFileGroups {
+				for _, g := range proj.ResourceGroups {
 					for _, i := range g.Dict {
 						f := g.Values[i]
 						wr.write(f.UUID.ForXCode())
@@ -306,14 +302,14 @@ func (g *XcodeGenerator) genProjectPBXBuildFile(wr *XcodeWriter, proj *Project) 
 	wr.newline(0)
 	wr.commentBlock("------ Begin PBXBuildFile section")
 
-	for _, group := range proj.SrcFileGroups {
+	for _, group := range proj.Files.Groups {
 		for _, i := range group.Dict {
 			f := group.Values[i]
 			g.genBuildFileReference(wr, f)
 		}
 	}
 
-	for _, group := range proj.ResFileGroups {
+	for _, group := range proj.ResourceGroups {
 		for _, i := range group.Dict {
 			f := group.Values[i]
 			g.genBuildFileReference(wr, f)
@@ -328,14 +324,14 @@ func (g *XcodeGenerator) genProjectPBXBuildFile(wr *XcodeWriter, proj *Project) 
 	wr.newline(0)
 	wr.commentBlock("------ Begin PBXFileReference section")
 
-	for _, group := range proj.SrcFileGroups {
+	for _, group := range proj.Files.Groups {
 		for _, i := range group.Dict {
 			f := group.Values[i]
 			g.genFileReference(wr, proj, f)
 		}
 	}
 
-	for _, group := range proj.ResFileGroups {
+	for _, group := range proj.ResourceGroups {
 		for _, i := range group.Dict {
 			f := group.Values[i]
 			wr.newline(0)
@@ -399,8 +395,8 @@ func (g *XcodeGenerator) genProjectPBXGroup(wr *XcodeWriter, proj *Project) {
 		scope.Close()
 	}
 
-	root := proj.VirtualFolders.Root
-	for _, v := range proj.VirtualFolders.Folders {
+	root := proj.Files.VirtualFolders.Root
+	for _, v := range proj.Files.VirtualFolders.Folders {
 		if v == root {
 			continue
 		}
@@ -424,7 +420,7 @@ func (g *XcodeGenerator) genProjectPBXGroup(wr *XcodeWriter, proj *Project) {
 
 			if v.Parent == root {
 				wr.member("sourceTree", XcodeKSourceTreeProject)
-				relPath := corepkg.PathGetRelativeTo(v.DiskPath, g.Workspace.GenerateAbsPath)
+				relPath := corepkg.PathGetRelativeTo(v.DiskPath, g.Workspace.OutputDir)
 				wr.member("path", g.quoteString(relPath))
 			} else {
 				wr.member("sourceTree", XcodeKSourceTreeGroup)
@@ -451,7 +447,7 @@ func (g *XcodeGenerator) genProjectPBXGroup(wr *XcodeWriter, proj *Project) {
 			scope.Close()
 		}
 		wr.member("sourceTree", XcodeKSourceTreeProject)
-		relPath := corepkg.PathGetRelativeTo(proj.GenerateAbsPath, g.Workspace.GenerateAbsPath)
+		relPath := corepkg.PathGetRelativeTo(proj.GenerateAbsPath, g.Workspace.OutputDir)
 		wr.member("path", g.quoteString(relPath))
 		wr.member("name", "MainGroup")
 		scope.Close()
@@ -515,7 +511,7 @@ func (g *XcodeGenerator) genProjectPBXSourcesBuildPhase(wr *XcodeWriter, proj *P
 		wr.member("runOnlyForDeploymentPostprocessing", "0")
 		{
 			scope := wr.NewArrayScope("files")
-			for _, group := range proj.SrcFileGroups {
+			for _, group := range proj.Files.Groups {
 				for _, i := range group.Dict {
 					f := group.Values[i]
 					wr.write(f.BuildUUID.ForXCode())
@@ -538,7 +534,7 @@ func (g *XcodeGenerator) genProjectPBXResourcesBuildPhase(wr *XcodeWriter, proj 
 		wr.member("runOnlyForDeploymentPostprocessing", "0")
 		{
 			scope := wr.NewArrayScope("files")
-			for _, group := range proj.ResFileGroups {
+			for _, group := range proj.ResourceGroups {
 				for _, i := range group.Dict {
 					f := group.Values[i]
 					wr.write(f.BuildUUID.ForXCode())
@@ -589,7 +585,7 @@ func (g *XcodeGenerator) genProjectPBXNativeTarget(wr *XcodeWriter, proj *Projec
 			wr.member("explicitFileType", explicitFileType)
 			wr.member("includeInIndex", "0")
 
-			defaultConfig := proj.Resolved.Configs.First()
+			defaultConfig := proj.FirstXcodeConfiguration()
 			targetBasename := corepkg.PathFilename(defaultConfig.Resolved.OutputTarget.Path, true)
 			wr.member("path", g.quoteString(targetBasename))
 			wr.member("sourceTree", "BUILT_PRODUCTS_DIR")
@@ -639,7 +635,7 @@ func (g *XcodeGenerator) genProjectXCBuildConfiguration(wr *XcodeWriter, proj *P
 	wr.commentBlock("----- XCBuildConfiguration ---------------")
 	wr.newline(0)
 
-	for _, config := range proj.Resolved.Configs.Values {
+	for _, config := range proj.XcodeConfigurations() {
 		wr.newline(0)
 		wr.commentBlock("Project Config [" + config.String() + "]")
 		scope := wr.NewObjectScope(config.GenDataXcode.ProjectConfigUuid.ForXCode())
@@ -652,7 +648,7 @@ func (g *XcodeGenerator) genProjectXCBuildConfiguration(wr *XcodeWriter, proj *P
 					wr.member(config.XcodeSettings.Keys[i], g.quoteString(value))
 				}
 
-				switch g.Workspace.CppStd {
+				switch g.Workspace.OptionsXcode.CppStd {
 				case CppStd11:
 					wr.member("CLANG_CXX_LANGUAGE_STANDARD", g.quoteString("c++11"))
 				case CppStd14:
@@ -672,7 +668,7 @@ func (g *XcodeGenerator) genProjectXCBuildConfiguration(wr *XcodeWriter, proj *P
 		scope.Close()
 	}
 
-	for _, config := range proj.Resolved.Configs.Values {
+	for _, config := range proj.XcodeConfigurations() {
 		wr.newline(0)
 		wr.commentBlock("Target Config [" + config.String() + "]")
 		scope := wr.NewObjectScope(config.GenDataXcode.TargetConfigUuid.ForXCode())
@@ -705,7 +701,7 @@ func (g *XcodeGenerator) genProjectXCBuildConfiguration(wr *XcodeWriter, proj *P
 					scope := wr.NewArrayScope("HEADER_SEARCH_PATHS")
 					for _, qk := range config.IncludeDirs.Values {
 						wr.newline(0)
-						headerSearchPath := qk.RelativeTo(g.Workspace.GenerateAbsPath)
+						headerSearchPath := qk.RelativeTo(g.Workspace.OutputDir)
 						if filepath.IsAbs(headerSearchPath) {
 							wr.write(g.quoteString2(headerSearchPath))
 						} else {
@@ -788,7 +784,7 @@ func (g *XcodeGenerator) genProjectXCConfigurationList(wr *XcodeWriter, proj *Pr
 			wr.member("isa", "XCConfigurationList")
 			{
 				scope := wr.NewArrayScope("buildConfigurations")
-				for _, config := range proj.Resolved.Configs.Values {
+				for _, config := range proj.XcodeConfigurations() {
 					wr.newline(0)
 					wr.commentBlock(config.String())
 					wr.newline(0)
@@ -800,7 +796,7 @@ func (g *XcodeGenerator) genProjectXCConfigurationList(wr *XcodeWriter, proj *Pr
 			wr.member("defaultConfigurationIsVisible", "0")
 
 			// TODO configurable ?
-			defaultConfig := g.Workspace.ProjectList.Values[0].Resolved.Configs.First()
+			defaultConfig := g.Workspace.Projects[0].FirstXcodeConfiguration()
 			wr.member("defaultConfigurationName", defaultConfig.String())
 		}
 		scope.Close()
@@ -814,7 +810,7 @@ func (g *XcodeGenerator) genProjectXCConfigurationList(wr *XcodeWriter, proj *Pr
 			wr.member("isa", "XCConfigurationList")
 			{
 				scope := wr.NewArrayScope("buildConfigurations")
-				for _, config := range proj.Resolved.Configs.Values {
+				for _, config := range proj.XcodeConfigurations() {
 					wr.newline(0)
 					wr.commentBlock(config.String())
 					wr.newline(0)
@@ -825,7 +821,7 @@ func (g *XcodeGenerator) genProjectXCConfigurationList(wr *XcodeWriter, proj *Pr
 			wr.member("defaultConfigurationIsVisible", "0")
 
 			// TODO configurable ?
-			defaultConfig := g.Workspace.ProjectList.Values[0].Resolved.Configs.First()
+			defaultConfig := g.Workspace.Projects[0].FirstXcodeConfiguration()
 			wr.member("defaultConfigurationName", defaultConfig.String())
 		}
 		scope.Close()
@@ -890,7 +886,7 @@ func (g *XcodeGenerator) genInfoPlistMacOSX(proj *Project) error {
 		tag.Close()
 	}
 
-	filename := filepath.Join(g.Workspace.GenerateAbsPath, gd.InfoPlistFile)
+	filename := filepath.Join(g.Workspace.OutputDir, gd.InfoPlistFile)
 	if err := wr.WriteToFile(filename); err != nil {
 		return err
 	}

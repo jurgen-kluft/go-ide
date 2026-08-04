@@ -18,19 +18,8 @@ import (
 
 const cppProjectTypeGuid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}"
 
-type ProjectConfiguration struct {
-	BuildConfig     denv.BuildConfig
-	Options         VsConfiguration
-	OutputDir       string
-	IntermediateDir string
-	TargetName      string
-	TargetExtension string
-}
-
-type Project struct {
-	Definition     *denv.DevProject
-	Configurations []ProjectConfiguration
-}
+type ProjectConfiguration = graph.ProjectConfiguration
+type Project = graph.Project
 
 func Generate(workspace Workspace) error {
 	if err := validateWorkspace(&workspace); err != nil {
@@ -41,7 +30,7 @@ func Generate(workspace Workspace) error {
 		return fmt.Errorf("create Visual Studio output directory: %w", err)
 	}
 
-	projects := append([]Project(nil), workspace.Projects...)
+	projects := append([]*Project(nil), workspace.Projects...)
 	sort.Slice(projects, func(i, j int) bool {
 		return projects[i].Definition.Name < projects[j].Definition.Name
 	})
@@ -52,9 +41,14 @@ func Generate(workspace Workspace) error {
 	}
 
 	for _, project := range projects {
-		files, err := graph.CollectProjectFiles(project.Definition, denv.BuildTargetWindowsX64)
-		if err != nil {
-			return fmt.Errorf("collect project files for %s: %w", project.Definition.Name, err)
+		files := project.Files
+		if files == nil {
+			var err error
+			files, err = graph.CollectProjectFiles(project.Definition, workspace.BuildTarget)
+			if err != nil {
+				return fmt.Errorf("collect project files for %s: %w", project.Definition.Name, err)
+			}
+			project.Files = files
 		}
 		if err := generateProject(workspace, project, files, projectGuids); err != nil {
 			return err
@@ -74,11 +68,14 @@ func validateWorkspace(workspace *Workspace) error {
 	if workspace.OutputDir == "" {
 		return errors.New("Visual Studio output directory is required")
 	}
-	if workspace.PlatformToolset == "" {
-		workspace.PlatformToolset = "v143"
+	if workspace.OptionsVs == nil {
+		workspace.OptionsVs = &graph.WorkspaceOptionsVs{}
 	}
-	if workspace.WindowsTargetPlatformVersion == "" {
-		workspace.WindowsTargetPlatformVersion = "10.0"
+	if workspace.OptionsVs.PlatformToolset == "" {
+		workspace.OptionsVs.PlatformToolset = "v143"
+	}
+	if workspace.OSTargetVersion == "" {
+		workspace.OSTargetVersion = "10.0"
 	}
 	if len(workspace.Projects) == 0 {
 		return errors.New("Visual Studio workspace requires at least one project")
@@ -106,8 +103,9 @@ func validateWorkspace(workspace *Workspace) error {
 	return nil
 }
 
-func generateProject(workspace Workspace, project Project, files *graph.ProjectFiles, projectGuids map[string]string) error {
+func generateProject(workspace Workspace, project *Project, files *graph.ProjectFiles, projectGuids map[string]string) error {
 	filename := filepath.Join(workspace.OutputDir, project.Definition.Name+".vcxproj")
+	workspaceOptions := visualStudioWorkspaceOptions(workspace)
 	return writeXml(filename, func(document *xmlDocument) error {
 		document.start("Project", attr("DefaultTargets", "Build"), attr("ToolsVersion", "17.0"), attr("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003"))
 
@@ -125,7 +123,7 @@ func generateProject(workspace Workspace, project Project, files *graph.ProjectF
 		document.element("ProjectGuid", projectGuids[project.Definition.Name])
 		document.element("Keyword", "Win32Proj")
 		document.element("RootNamespace", project.Definition.Name)
-		document.element("WindowsTargetPlatformVersion", workspace.WindowsTargetPlatformVersion)
+		document.element("WindowsTargetPlatformVersion", workspace.OSTargetVersion)
 		document.end("PropertyGroup")
 		document.empty("Import", attr("Project", `$(VCTargetsPath)\Microsoft.Cpp.Default.props`))
 
@@ -135,7 +133,7 @@ func generateProject(workspace Workspace, project Project, files *graph.ProjectF
 			document.start("PropertyGroup", attr("Condition", condition), attr("Label", "Configuration"))
 			document.element("ConfigurationType", configurationType(project.Definition.BuildType))
 			document.element("UseDebugLibraries", boolText(config.BuildConfig.IsDebug()))
-			document.element("PlatformToolset", workspace.PlatformToolset)
+			document.element("PlatformToolset", workspaceOptions.PlatformToolset)
 			document.element("CharacterSet", "Unicode")
 			document.end("PropertyGroup")
 		}
@@ -215,6 +213,16 @@ func generateProject(workspace Workspace, project Project, files *graph.ProjectF
 	})
 }
 
+func visualStudioWorkspaceOptions(workspace Workspace) graph.WorkspaceOptionsVs {
+	options := graph.WorkspaceOptionsVs{PlatformToolset: "v143"}
+	if workspace.OptionsVs != nil {
+		if workspace.OptionsVs.PlatformToolset != "" {
+			options.PlatformToolset = workspace.OptionsVs.PlatformToolset
+		}
+	}
+	return options
+}
+
 func writeCompileOptions(document *xmlDocument, options VsConfiguration) {
 	document.start("ClCompile")
 	writeOptional(document, "LanguageStandard_C", cStandard(options.CStandard))
@@ -257,7 +265,7 @@ func writeLinkOptions(document *xmlDocument, options VsConfiguration) {
 	document.end("Link")
 }
 
-func generateFilters(workspace Workspace, project Project, files *graph.ProjectFiles) error {
+func generateFilters(workspace Workspace, project *Project, files *graph.ProjectFiles) error {
 	filename := filepath.Join(workspace.OutputDir, project.Definition.Name+".vcxproj.filters")
 	return writeXml(filename, func(document *xmlDocument) error {
 		document.start("Project", attr("ToolsVersion", "4.0"), attr("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003"))
@@ -310,14 +318,14 @@ func visualStudioFileTag(file *graph.FileEntry) string {
 	}
 }
 
-func generateSolution(workspace Workspace, projects []Project, projectGuids map[string]string) error {
+func generateSolution(workspace Workspace, projects []*Project, projectGuids map[string]string) error {
 	var buffer bytes.Buffer
 	buffer.WriteString("Microsoft Visual Studio Solution File, Format Version 12.00\r\n")
 	buffer.WriteString("# Visual Studio Version 17\r\n")
 	buffer.WriteString("VisualStudioVersion = 17.0.31314.256\r\n")
 	buffer.WriteString("MinimumVisualStudioVersion = 10.0.40219.1\r\n")
 
-	orderedProjects := append([]Project(nil), projects...)
+	orderedProjects := append([]*Project(nil), projects...)
 	if workspace.StartupProject != "" {
 		sort.SliceStable(orderedProjects, func(i, j int) bool {
 			return orderedProjects[i].Definition.Name == workspace.StartupProject
@@ -362,8 +370,11 @@ func generateSolution(workspace Workspace, projects []Project, projectGuids map[
 	return nil
 }
 
-func effectiveOptions(project *denv.DevProject, config ProjectConfiguration) VsConfiguration {
-	options := config.Options
+func effectiveOptions(project *denv.DevProject, config *ProjectConfiguration) VsConfiguration {
+	options := VsConfiguration{}
+	if config.OptionsVs != nil {
+		options = *config.OptionsVs
+	}
 	for _, devConfig := range project.Configs {
 		if devConfig.BuildConfig.IsEqual(config.BuildConfig) {
 			return mergeDevConfig(options, devConfig)
@@ -387,8 +398,8 @@ func uniqueStrings(groups ...[]string) []string {
 	return result
 }
 
-func sortedConfigurations(configs []ProjectConfiguration) []ProjectConfiguration {
-	result := append([]ProjectConfiguration(nil), configs...)
+func sortedConfigurations(configs []*ProjectConfiguration) []*ProjectConfiguration {
+	result := append([]*ProjectConfiguration(nil), configs...)
 	sort.Slice(result, func(i, j int) bool {
 		leftName, leftPlatform := configurationIdentity(result[i])
 		rightName, rightPlatform := configurationIdentity(result[j])
@@ -397,7 +408,7 @@ func sortedConfigurations(configs []ProjectConfiguration) []ProjectConfiguration
 	return result
 }
 
-func solutionConfigurations(projects []Project) []string {
+func solutionConfigurations(projects []*Project) []string {
 	set := make(map[string]bool)
 	for _, project := range projects {
 		for _, config := range project.Configurations {
@@ -413,8 +424,12 @@ func solutionConfigurations(projects []Project) []string {
 	return result
 }
 
-func configurationIdentity(config ProjectConfiguration) (string, string) {
-	return config.BuildConfig.VisualStudio(), platform(config.Options.Machine)
+func configurationIdentity(config *ProjectConfiguration) (string, string) {
+	machine := VsMachineDefault
+	if config.OptionsVs != nil {
+		machine = config.OptionsVs.Machine
+	}
+	return config.BuildConfig.VisualStudio(), platform(machine)
 }
 
 func configurationCondition(name, platform string) string {

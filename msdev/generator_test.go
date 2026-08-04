@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jurgen-kluft/gide/denv"
+	"github.com/jurgen-kluft/gide/graph"
 )
 
 func TestGenerateVs2022Workspace(t *testing.T) {
@@ -128,12 +129,13 @@ func TestGenerateProjectAndFiltersIncludeHeaders(t *testing.T) {
 
 	workspace := Workspace{OutputDir: outputDir}
 	project := Project{Definition: &denv.DevProject{Name: "hello"}}
-	headerPath := filepath.Join(root, "hello", "include", "public", "hello.h")
-	headers := []sourceFile{{
-		absPath: headerPath,
-		filter:  filepath.Join("include", "public"),
-		tag:     "ClInclude",
-	}}
+	group := graph.NewFileEntryDict(filepath.Join(root, "hello"))
+	header := group.Add(filepath.Join("include", "public", "hello.h"))
+	virtualFolders := graph.NewVirtualDirectories(group.Path)
+	virtualFolders.AddFile(header)
+	virtualFolders.Sort()
+	virtualFolders.AssignUUIDs("hello", []*graph.FileEntryDict{group})
+	headers := &graph.ProjectFiles{Groups: []*graph.FileEntryDict{group}, VirtualFolders: virtualFolders}
 
 	if err := generateProject(workspace, project, headers, map[string]string{"hello": stableGuid("hello")}); err != nil {
 		t.Fatalf("generateProject() error = %v", err)
@@ -149,6 +151,7 @@ func TestGenerateProjectAndFiltersIncludeHeaders(t *testing.T) {
 	assertContains(t, projectXml, `<ClInclude Include="..\..\hello\include\public\hello.h"></ClInclude>`)
 	assertContains(t, filtersXml, `<Filter Include="include">`)
 	assertContains(t, filtersXml, `<Filter Include="include\public">`)
+	assertContains(t, filtersXml, `<UniqueIdentifier>`+header.Parent.UUID.ForVisualStudio()+`</UniqueIdentifier>`)
 	assertContains(t, filtersXml, `<ClInclude Include="..\..\hello\include\public\hello.h">`)
 	assertContains(t, filtersXml, `<Filter>include\public</Filter>`)
 }

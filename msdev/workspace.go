@@ -12,6 +12,15 @@ import (
 
 type VarsResolver func(project *denv.DevProject, buildTarget denv.BuildTarget, buildConfig denv.BuildConfig, vars *corepkg.Vars)
 
+type Workspace struct {
+	Name                         string
+	OutputDir                    string
+	PlatformToolset              string
+	WindowsTargetPlatformVersion string
+	StartupProject               string
+	Projects                     []Project
+}
+
 type WorkspaceOptions struct {
 	Name                         string
 	OutputDir                    string

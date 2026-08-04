@@ -13,6 +13,7 @@ import (
 
 	corepkg "github.com/jurgen-kluft/gcore"
 	"github.com/jurgen-kluft/gide/denv"
+	"github.com/jurgen-kluft/gide/graph"
 )
 
 const cppProjectTypeGuid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}"
@@ -29,15 +30,6 @@ type ProjectConfiguration struct {
 type Project struct {
 	Definition     *denv.DevProject
 	Configurations []ProjectConfiguration
-}
-
-type Workspace struct {
-	Name                         string
-	OutputDir                    string
-	PlatformToolset              string
-	WindowsTargetPlatformVersion string
-	StartupProject               string
-	Projects                     []Project
 }
 
 func Generate(workspace Workspace) error {
@@ -59,21 +51,11 @@ func Generate(workspace Workspace) error {
 		projectGuids[project.Definition.Name] = stableGuid(project.Definition.RepoName + "/" + project.Definition.Name)
 	}
 
-	exclusionFilter := denv.NewExclusionFilter(denv.BuildTargetWindowsX64)
-
-	sourceExclusionFilterFunc := func(_filepath string) bool { return exclusionFilter.IsExcluded(_filepath) }
-	headerExclusionFilterFunc := func(_filepath string) bool { return false }
-
 	for _, project := range projects {
-		srcFiles, err := collectSourceFiles(project.Definition, sourceExclusionFilterFunc)
+		files, err := graph.CollectProjectFiles(project.Definition, denv.BuildTargetWindowsX64)
 		if err != nil {
-			return fmt.Errorf("collect source files for %s: %w", project.Definition.Name, err)
+			return fmt.Errorf("collect project files for %s: %w", project.Definition.Name, err)
 		}
-		hdrFiles, err := collectHeaderFiles(project.Definition, headerExclusionFilterFunc)
-		if err != nil {
-			return fmt.Errorf("collect header files for %s: %w", project.Definition.Name, err)
-		}
-		files := mergeSourceFiles(srcFiles, hdrFiles)
 		if err := generateProject(workspace, project, files, projectGuids); err != nil {
 			return err
 		}
@@ -124,118 +106,7 @@ func validateWorkspace(workspace *Workspace) error {
 	return nil
 }
 
-type sourceFile struct {
-	absPath string
-	relPath string
-	filter  string
-	tag     string
-}
-
-func collectSourceFiles(project *denv.DevProject, exclusionFilter func(string) bool) ([]sourceFile, error) {
-	byPath := make(map[string]sourceFile)
-
-	srcDirs := project.CollectSourceDirs()
-	for _, srcPinnedPath := range srcDirs {
-		files := GlobFiles(filepath.Join(srcPinnedPath.Path.Root, srcPinnedPath.Path.Base), srcPinnedPath.Path.Sub, srcPinnedPath.Glob, exclusionFilter)
-		for _, file := range files {
-			byPath[file.absPath] = file
-		}
-	}
-
-	files := make([]sourceFile, 0, len(byPath))
-	for _, file := range byPath {
-		files = append(files, file)
-	}
-	sort.Slice(files, func(i, j int) bool { return files[i].absPath < files[j].absPath })
-	return files, nil
-}
-
-func collectHeaderFiles(project *denv.DevProject, exclusionFilter func(string) bool) ([]sourceFile, error) {
-	byPath := make(map[string]sourceFile)
-
-	includeDirs := project.CollectIncludeDirs()
-	for _, hdrPinnedPath := range includeDirs {
-		files := GlobFiles(filepath.Join(hdrPinnedPath.Root, hdrPinnedPath.Base), hdrPinnedPath.Sub, "**/*.*", exclusionFilter)
-		for _, file := range files {
-			byPath[file.absPath] = file
-		}
-	}
-
-	files := make([]sourceFile, 0, len(byPath))
-	for _, file := range byPath {
-		files = append(files, file)
-	}
-	sort.Slice(files, func(i, j int) bool { return files[i].absPath < files[j].absPath })
-	return files, nil
-}
-
-// -----------------------------------------------------------------------------------------------------
-// -----------------------------------------------------------------------------------------------------
-
-func GlobFiles(path string, sub string, pattern string, isExcluded func(string) bool) []sourceFile {
-	path = corepkg.PathNormalize(path)
-	sub = corepkg.PathNormalize(sub)
-	pattern = corepkg.PathNormalize(pattern)
-
-	dirFunc := func(rootPath, relPath string) bool {
-		return true // We want to include all directories
-	}
-
-	dirpath := filepath.Join(path, sub)
-	srcFiles := make([]sourceFile, 0, 0)
-	fileFunc := func(rootPath, relPath string) {
-		if !isExcluded(relPath) {
-			if match := corepkg.GlobMatching(relPath, pattern); match {
-				filter := filepath.Dir(relPath)
-				if filter == "." || strings.HasPrefix(filter, "..") {
-					filter = ""
-				}
-				srcFiles = append(srcFiles, sourceFile{
-					absPath: filepath.Join(rootPath, relPath),
-					relPath: relPath,
-					filter:  filter,
-					tag:     sourceTag(relPath),
-				})
-			}
-		}
-	}
-
-	err := corepkg.FileEnumerate(dirpath, dirFunc, fileFunc)
-	if err != nil {
-		corepkg.LogErrorf(err, "failed to enumerate files in %q: %v", dirpath)
-		return nil
-	}
-
-	return srcFiles
-}
-
-func sourceTag(path string) string {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".c", ".cc", ".cpp", ".cxx", ".ixx":
-		return "ClCompile"
-	default:
-		return "ClInclude"
-	}
-}
-
-func mergeSourceFiles(groups ...[]sourceFile) []sourceFile {
-	byPath := make(map[string]sourceFile)
-	for _, group := range groups {
-		for _, file := range group {
-			if _, exists := byPath[file.absPath]; !exists {
-				byPath[file.absPath] = file
-			}
-		}
-	}
-	files := make([]sourceFile, 0, len(byPath))
-	for _, file := range byPath {
-		files = append(files, file)
-	}
-	sort.Slice(files, func(i, j int) bool { return files[i].absPath < files[j].absPath })
-	return files
-}
-
-func generateProject(workspace Workspace, project Project, files []sourceFile, projectGuids map[string]string) error {
+func generateProject(workspace Workspace, project Project, files *graph.ProjectFiles, projectGuids map[string]string) error {
 	filename := filepath.Join(workspace.OutputDir, project.Definition.Name+".vcxproj")
 	return writeXml(filename, func(document *xmlDocument) error {
 		document.start("Project", attr("DefaultTargets", "Build"), attr("ToolsVersion", "17.0"), attr("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003"))
@@ -305,14 +176,16 @@ func generateProject(workspace Workspace, project Project, files []sourceFile, p
 			document.end("ItemDefinitionGroup")
 		}
 
-		if len(files) > 0 {
+		if files != nil && len(files.Groups) > 0 {
 			document.start("ItemGroup")
-			for _, file := range files {
-				relPath, err := filepath.Rel(workspace.OutputDir, file.absPath)
-				if err != nil {
-					return err
+			for _, group := range files.Groups {
+				for _, file := range group.Values {
+					relPath, err := group.GetRelativePath(file, workspace.OutputDir)
+					if err != nil {
+						return err
+					}
+					document.empty(visualStudioFileTag(file), attr("Include", windowsPath(relPath)))
 				}
-				document.empty(file.tag, attr("Include", windowsPath(relPath)))
 			}
 			document.end("ItemGroup")
 		}
@@ -384,46 +257,39 @@ func writeLinkOptions(document *xmlDocument, options VsConfiguration) {
 	document.end("Link")
 }
 
-func generateFilters(workspace Workspace, project Project, files []sourceFile) error {
+func generateFilters(workspace Workspace, project Project, files *graph.ProjectFiles) error {
 	filename := filepath.Join(workspace.OutputDir, project.Definition.Name+".vcxproj.filters")
 	return writeXml(filename, func(document *xmlDocument) error {
 		document.start("Project", attr("ToolsVersion", "4.0"), attr("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003"))
 
-		filters := make(map[string]bool)
-		for _, file := range files {
-			filter := file.filter
-			for filter != "" && filter != "." {
-				filters[filter] = true
-				filter = filepath.Dir(filter)
-			}
-		}
-		filterNames := make([]string, 0, len(filters))
-		for filter := range filters {
-			filterNames = append(filterNames, filter)
-		}
-		sort.Strings(filterNames)
-		if len(filterNames) > 0 {
+		if len(files.VirtualFolders.Folders) > 1 {
 			document.start("ItemGroup")
-			for _, filter := range filterNames {
-				document.start("Filter", attr("Include", windowsPath(filter)))
-				document.element("UniqueIdentifier", stableGuid(project.Definition.Name+"/filter/"+filter))
+			for _, folder := range files.VirtualFolders.Folders {
+				if folder == files.VirtualFolders.Root {
+					continue
+				}
+				document.start("Filter", attr("Include", windowsPath(folder.Path)))
+				document.element("UniqueIdentifier", folder.UUID.ForVisualStudio())
 				document.end("Filter")
 			}
 			document.end("ItemGroup")
 		}
 
-		if len(files) > 0 {
+		if len(files.Groups) > 0 {
 			document.start("ItemGroup")
-			for _, file := range files {
-				relPath, err := filepath.Rel(workspace.OutputDir, file.absPath)
-				if err != nil {
-					return err
+			for _, group := range files.Groups {
+				for _, file := range group.Values {
+					relPath, err := group.GetRelativePath(file, workspace.OutputDir)
+					if err != nil {
+						return err
+					}
+					tag := visualStudioFileTag(file)
+					document.start(tag, attr("Include", windowsPath(relPath)))
+					if file.Parent != files.VirtualFolders.Root {
+						document.element("Filter", windowsPath(file.Parent.Path))
+					}
+					document.end(tag)
 				}
-				document.start(file.tag, attr("Include", windowsPath(relPath)))
-				if file.filter != "" {
-					document.element("Filter", windowsPath(file.filter))
-				}
-				document.end(file.tag)
 			}
 			document.end("ItemGroup")
 		}
@@ -431,6 +297,17 @@ func generateFilters(workspace Workspace, project Project, files []sourceFile) e
 		document.end("Project")
 		return nil
 	})
+}
+
+func visualStudioFileTag(file *graph.FileEntry) string {
+	switch file.Type {
+	case graph.FileTypeCSource, graph.FileTypeCppSource, graph.FileTypeIxx, graph.FileTypeMxx:
+		return "ClCompile"
+	case graph.FileTypeCuHeader, graph.FileTypeCuSource:
+		return "CudaCompile"
+	default:
+		return "ClInclude"
+	}
 }
 
 func generateSolution(workspace Workspace, projects []Project, projectGuids map[string]string) error {

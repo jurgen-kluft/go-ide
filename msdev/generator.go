@@ -59,8 +59,11 @@ func Generate(workspace Workspace) error {
 		projectGuids[project.Definition.Name] = stableGuid(project.Definition.RepoName + "/" + project.Definition.Name)
 	}
 
+	exclusionFilter := denv.NewExclusionFilter(denv.BuildTargetWindowsX64)
+	exclusionFilterFunc := func(_filepath string) bool { return exclusionFilter.IsExcluded(_filepath) }
+
 	for _, project := range projects {
-		files, err := collectSourceFiles(project.Definition)
+		files, err := collectSourceFiles(project.Definition, exclusionFilterFunc)
 		if err != nil {
 			return fmt.Errorf("collect source files for %s: %w", project.Definition.Name, err)
 		}
@@ -121,47 +124,14 @@ type sourceFile struct {
 	tag     string
 }
 
-func collectSourceFiles(project *denv.DevProject) ([]sourceFile, error) {
+func collectSourceFiles(project *denv.DevProject, exclusionFilter func(string) bool) ([]sourceFile, error) {
 	byPath := make(map[string]sourceFile)
-	for _, sourceDir := range project.CollectSourceDirs() {
-		baseDir := sourceDir.Path.String()
-		err := filepath.WalkDir(baseDir, func(path string, entry os.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if entry.IsDir() {
-				return nil
-			}
-			relToSource, err := filepath.Rel(baseDir, path)
-			if err != nil {
-				return err
-			}
-			matched, err := corepkg.PathMatch(filepath.FromSlash(sourceDir.Glob), relToSource)
-			if err != nil {
-				return fmt.Errorf("invalid source glob %q: %w", sourceDir.Glob, err)
-			}
-			if !matched {
-				return nil
-			}
 
-			relToProject, err := filepath.Rel(project.ProjectPath(), path)
-			if err != nil {
-				return err
-			}
-			filter := filepath.Dir(relToProject)
-			if filter == "." || strings.HasPrefix(filter, "..") {
-				filter = ""
-			}
-			byPath[path] = sourceFile{
-				absPath: path,
-				relPath: relToProject,
-				filter:  filter,
-				tag:     sourceTag(path),
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, err
+	srcDirs := project.CollectSourceDirs()
+	for _, srcPinnedPath := range srcDirs {
+		files := GlobFiles(filepath.Join(srcPinnedPath.Path.Root, srcPinnedPath.Path.Base), srcPinnedPath.Path.Sub, srcPinnedPath.Glob, exclusionFilter)
+		for _, file := range files {
+			byPath[file.absPath] = file
 		}
 	}
 
@@ -171,6 +141,46 @@ func collectSourceFiles(project *denv.DevProject) ([]sourceFile, error) {
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].absPath < files[j].absPath })
 	return files, nil
+}
+
+// -----------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------
+
+func GlobFiles(path string, sub string, pattern string, isExcluded func(string) bool) []sourceFile {
+	path = corepkg.PathNormalize(path)
+	sub = corepkg.PathNormalize(sub)
+	pattern = corepkg.PathNormalize(pattern)
+
+	dirFunc := func(rootPath, relPath string) bool {
+		return true // We want to include all directories
+	}
+
+	dirpath := filepath.Join(path, sub)
+	srcFiles := make([]sourceFile, 0, 0)
+	fileFunc := func(rootPath, relPath string) {
+		if !isExcluded(relPath) {
+			if match := corepkg.GlobMatching(relPath, pattern); match {
+				filter := filepath.Dir(relPath)
+				if filter == "." || strings.HasPrefix(filter, "..") {
+					filter = ""
+				}
+				srcFiles = append(srcFiles, sourceFile{
+					absPath: filepath.Join(rootPath, relPath),
+					relPath: relPath,
+					filter:  filter,
+					tag:     sourceTag(relPath),
+				})
+			}
+		}
+	}
+
+	err := corepkg.FileEnumerate(dirpath, dirFunc, fileFunc)
+	if err != nil {
+		corepkg.LogErrorf(err, "failed to enumerate files in %q: %v", dirpath)
+		return nil
+	}
+
+	return srcFiles
 }
 
 func sourceTag(path string) string {
@@ -596,9 +606,9 @@ func subsystem(value VsSubsystem) string {
 
 func linkErrorReporting(value VsLinkErrorReporting) string {
 	return map[VsLinkErrorReporting]string{
-		VsLinkErrorReportingPrompt: "Prompt",
-		VsLinkErrorReportingQueue:  "Queue",
-		VsLinkErrorReportingSend:   "Send",
+		VsLinkErrorReportingPrompt: "PromptImmediately",
+		VsLinkErrorReportingQueue:  "QueueForNextLogin",
+		VsLinkErrorReportingSend:   "SendErrorReport",
 		VsLinkErrorReportingNone:   "NoErrorReport",
 	}[value]
 }

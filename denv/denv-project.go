@@ -211,10 +211,11 @@ func (proj *DevProject) CollectSourceDirs() []PinnedGlobPath {
 		root := proj.ResolveEnvironmentVariables(dir.Path.Root)
 		base := proj.ResolveEnvironmentVariables(dir.Path.Base)
 		sub := proj.ResolveEnvironmentVariables(dir.Path.Sub)
-		fullPath := filepath.Join(base, sub)
+
 		// Check if we have already added this path
-		if !history[fullPath] {
-			history[fullPath] = true
+		key := dir.String()
+		if ok, _ := history[key]; !ok {
+			history[key] = true
 			ppg := PinnedGlobPath{Path: PinnedPath{Root: root, Base: base, Sub: sub}, Glob: dir.Glob}
 			sourceDirs = append(sourceDirs, ppg)
 		}

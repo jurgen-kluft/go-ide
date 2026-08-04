@@ -1,5 +1,7 @@
 package denv
 
+import "path/filepath"
+
 type PinnedGlobPath struct {
 	Path PinnedPath
 	Glob string
@@ -7,6 +9,10 @@ type PinnedGlobPath struct {
 
 func NewPinnedGlobPath(root string, base string, sub string, glob string) PinnedGlobPath {
 	return PinnedGlobPath{PinnedPath{Root: root, Base: base, Sub: sub}, glob}
+}
+
+func (fp PinnedGlobPath) String() string {
+	return filepath.Join(fp.Path.String(), fp.Glob)
 }
 
 // func (fp PinnedGlobPath) EncodeJson(encoder *corepkg.JsonEncoder, key string) {

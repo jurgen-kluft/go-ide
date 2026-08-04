@@ -97,6 +97,7 @@ func (p *Package) AllProjects() []*DevProject {
 	iterateProjects(p.TestLibs, addProjectFunc)
 	iterateProjects(p.MainApps, addProjectFunc)
 	iterateProjects(p.Unittests, addProjectFunc)
+	iterateProjects(p.Library, addProjectFunc)
 	return list.Values
 }
 

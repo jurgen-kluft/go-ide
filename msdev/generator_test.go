@@ -157,6 +157,29 @@ func TestGenerateProjectAndFiltersIncludeHeaders(t *testing.T) {
 	assertContains(t, filtersXml, `<Filter>include\public</Filter>`)
 }
 
+func TestWriteXmlPreservesLiteralApostrophes(t *testing.T) {
+	filename := filepath.Join(t.TempDir(), "apostrophes.xml")
+	condition := `'$(Configuration)'=='Debug' && 1 < 2`
+	if err := writeXml(filename, func(document *xmlDocument) error {
+		document.start("Project", attr("Condition", condition))
+		document.element("Value", "it's <valid> & escaped")
+		document.element("Literal", "&#39;")
+		document.end("Project")
+		return nil
+	}); err != nil {
+		t.Fatalf("writeXml() error = %v", err)
+	}
+
+	generated := readTestFile(t, filename)
+	assertValidXml(t, generated)
+	assertContains(t, generated, `Condition="'$(Configuration)'=='Debug' &amp;&amp; 1 &lt; 2"`)
+	assertContains(t, generated, `<Value>it's &lt;valid&gt; &amp; escaped</Value>`)
+	assertContains(t, generated, `<Literal>&amp;#39;</Literal>`)
+	if strings.Contains(generated, "&#39;") {
+		t.Errorf("generated XML contains numeric apostrophe references\n%s", generated)
+	}
+}
+
 func TestGenerateRejectsProjectWithoutConfigurations(t *testing.T) {
 	project := &denv.DevProject{Name: "empty", Dependencies: denv.NewDevProjectList()}
 	err := Generate(Workspace{

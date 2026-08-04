@@ -586,7 +586,8 @@ func writeXml(filename string, generate func(*xmlDocument) error) error {
 		return err
 	}
 	buffer.WriteByte('\n')
-	if err := os.WriteFile(filename, buffer.Bytes(), 0o644); err != nil {
+	output := bytes.ReplaceAll(buffer.Bytes(), []byte("&#39;"), []byte("'"))
+	if err := os.WriteFile(filename, output, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", filepath.Base(filename), err)
 	}
 	return nil

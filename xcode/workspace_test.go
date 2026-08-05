@@ -63,7 +63,7 @@ func TestBuildWorkspaceAndGeneratePackage(t *testing.T) {
 	if hardwareID != "" {
 		t.Errorf("Package.GetVars hardware ID = %q, want empty", hardwareID)
 	}
-	if workspace.OptionsXcode.CppStd != CppStd20 {
+	if workspace.OptionsXcode.CppStd != graph.CppStd20 {
 		t.Errorf("workspace C++ standard = %v, want C++20", workspace.OptionsXcode.CppStd)
 	}
 	if workspace.StartupProject != application.Name {
@@ -112,7 +112,7 @@ func TestBuildProjectConfigurationsUsesIOSTargetVersion(t *testing.T) {
 			denv.NewDevConfig(denv.BuildTypeStaticLibrary, denv.NewDebugConfig()),
 		},
 	}
-	configurations, _, err := buildProjectConfigurations(project, WorkspaceOptions{
+	configurations, _, _, err := buildProjectConfigurations(project, WorkspaceOptions{
 		BuildTarget:     denv.BuildTargetAppleiOS,
 		OSTargetVersion: "17.0",
 		ResolveVars:     func(_ *denv.DevProject, _ denv.BuildTarget, _ denv.BuildConfig, _ *corepkg.Vars) {},
@@ -128,7 +128,7 @@ func TestBuildProjectConfigurationsUsesIOSTargetVersion(t *testing.T) {
 
 func TestNewWorkspaceInitializesGraph(t *testing.T) {
 	workspace := newWorkspace("example", t.TempDir(), denv.BuildTargetMacUniversal)
-	if workspace.OptionsXcode == nil || workspace.OptionsXcode.CppStd != CppStd17 {
+	if workspace.OptionsXcode == nil || workspace.OptionsXcode.CppStd != graph.CppStd17 {
 		t.Fatalf("workspace Xcode options = %#v, want C++17 defaults", workspace.OptionsXcode)
 	}
 	if workspace.Projects == nil || workspace.ProjectGroups == nil || workspace.ProjectGroups.Root == nil {

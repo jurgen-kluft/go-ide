@@ -19,3 +19,17 @@ const (
 	CStd17
 	CStdLatest
 )
+
+func EnsureCppStd(requested CppStdType, defaultValue CppStdType) CppStdType {
+	if requested == CppStdDefault {
+		return defaultValue
+	}
+	return requested
+}
+
+func EnsureCStd(requested CStdType, defaultValue CStdType) CStdType {
+	if requested == CStdDefault {
+		return defaultValue
+	}
+	return requested
+}

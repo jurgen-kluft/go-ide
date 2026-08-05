@@ -25,6 +25,7 @@ func buildWorkspace(pkg *denv.Package, options WorkspaceOptions) (*Workspace, er
 		},
 		InitializeWorkspace: func(workspace *graph.Workspace, options graph.WorkspaceOptions) {
 			visualStudioOptions := options.OptionsVs
+			visualStudioOptions.CppStd = graph.EnsureCppStd(options.OptionsVs.CppStd, graph.CppStd17)
 			workspace.OptionsVs = &visualStudioOptions
 		},
 		BuildProjectConfigurations: buildProjectConfigurations,
@@ -49,6 +50,8 @@ func buildProjectConfigurations(project *denv.DevProject, options WorkspaceOptio
 		if err != nil {
 			return nil, fmt.Errorf("create Visual Studio configuration for %s/%s: %w", project.Name, buildConfig.String(), err)
 		}
+		configuration.CStandard = graph.EnsureCStd(options.OptionsVs.CStandard, graph.CStdDefault)
+		configuration.CppStandard = graph.EnsureCppStd(options.OptionsVs.CppStd, graph.CppStd17)
 		if configuration.Machine == VsMachineDefault {
 			configuration.Machine = machineFromTarget(options.BuildTarget)
 		}

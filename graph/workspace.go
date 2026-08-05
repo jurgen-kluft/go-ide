@@ -34,10 +34,13 @@ type WorkspaceOptions struct {
 }
 
 type WorkspaceOptionsVs struct {
+	CStandard       CStdType
+	CppStd          CppStdType
 	PlatformToolset string
 }
 
 type WorkspaceOptionsXcode struct {
+	CStd   CStdType
 	CppStd CppStdType
 }
 

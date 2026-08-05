@@ -650,15 +650,15 @@ func (g *XcodeGenerator) genProjectXCBuildConfiguration(wr *XcodeWriter, proj *P
 				}
 
 				switch g.Workspace.OptionsXcode.CppStd {
-				case CppStd11:
+				case graph.CppStd11:
 					wr.member("CLANG_CXX_LANGUAGE_STANDARD", g.quoteString("c++11"))
-				case CppStd14:
+				case graph.CppStd14:
 					wr.member("CLANG_CXX_LANGUAGE_STANDARD", g.quoteString("c++14"))
-				case CppStd17:
+				case graph.CppStd17:
 					wr.member("CLANG_CXX_LANGUAGE_STANDARD", g.quoteString("c++17"))
-				case CppStd20:
+				case graph.CppStd20:
 					wr.member("CLANG_CXX_LANGUAGE_STANDARD", g.quoteString("c++20"))
-				case CppStdLatest:
+				case graph.CppStdLatest:
 					wr.member("CLANG_CXX_LANGUAGE_STANDARD", g.quoteString("c++latest"))
 				}
 

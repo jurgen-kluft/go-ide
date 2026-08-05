@@ -29,9 +29,20 @@ func CollectProjectFiles(project *denv.DevProject, target denv.BuildTarget) (*Pr
 			return nil, fmt.Errorf("collect source files from %q: %w", root, err)
 		}
 	}
+
+	// Include files extensions that are allowed
+	hdrFileExtensions := map[string]int8{".h": 0, ".hpp": 0, ".hh": 0, ".hxx": 0, ".inl": 0, ".inc": 0}
+	hdrFileFilter := func(path string) bool {
+		ext := filepath.Ext(path)
+		if status, ok := hdrFileExtensions[ext]; ok {
+			return !(status == 0)
+		}
+		return true
+	}
+
 	for _, include := range project.CollectIncludeDirs() {
 		root := include.String()
-		if err := collectGlob(groupsByRoot, absolutePaths, root, "**/*.*", func(string) bool { return false }); err != nil {
+		if err := collectGlob(groupsByRoot, absolutePaths, root, "**/*.*", hdrFileFilter); err != nil {
 			return nil, fmt.Errorf("collect header files from %q: %w", root, err)
 		}
 	}

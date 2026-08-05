@@ -11,6 +11,7 @@ import (
 )
 
 type CppStdType = graph.CppStdType
+type CStdType = graph.CStdType
 
 type Workspace = graph.Workspace
 type WorkspaceOptions = graph.WorkspaceOptions
@@ -21,15 +22,6 @@ type ProjectList = graph.ProjectList
 type ProjectGroup = graph.ProjectGroup
 type ProjectGroups = graph.ProjectGroups
 
-const (
-	CppStdDefault = graph.CppStdDefault
-	CppStd11      = graph.CppStd11
-	CppStd14      = graph.CppStd14
-	CppStd17      = graph.CppStd17
-	CppStd20      = graph.CppStd20
-	CppStdLatest  = graph.CppStdLatest
-)
-
 func GeneratePackage(pkg *denv.Package, options WorkspaceOptions) error {
 	workspace, err := buildWorkspace(pkg, options)
 	if err != nil {
@@ -39,8 +31,11 @@ func GeneratePackage(pkg *denv.Package, options WorkspaceOptions) error {
 }
 
 func buildWorkspace(pkg *denv.Package, options WorkspaceOptions) (*Workspace, error) {
-	requestedCppStd := options.OptionsXcode.CppStd
 	var workspace *Workspace
+
+	currentCppStd := graph.EnsureCppStd(options.OptionsXcode.CppStd, graph.CppStd17)
+	currentCStd := graph.EnsureCStd(options.OptionsXcode.CStd, graph.CStd17)
+
 	return graph.BuildWorkspace(pkg, options, graph.WorkspaceBuilderBackend{
 		Name: "Xcode",
 		ValidateTarget: func(target denv.BuildTarget) error {
@@ -52,16 +47,14 @@ func buildWorkspace(pkg *denv.Package, options WorkspaceOptions) (*Workspace, er
 		InitializeWorkspace: func(sharedWorkspace *graph.Workspace, options graph.WorkspaceOptions) {
 			workspace = sharedWorkspace
 			xcodeOptions := options.OptionsXcode
-			if xcodeOptions.CppStd == graph.CppStdDefault {
-				xcodeOptions.CppStd = graph.CppStd17
-			}
+			xcodeOptions.CppStd = currentCppStd
+			xcodeOptions.CStd = currentCStd
 			workspace.OptionsXcode = &xcodeOptions
 		},
 		BuildProjectConfigurations: func(project *denv.DevProject, options graph.WorkspaceOptions) ([]*graph.ProjectConfiguration, error) {
-			configurations, cppStd, err := buildProjectConfigurations(project, options)
-			if err == nil && requestedCppStd == graph.CppStdDefault && cppStd != graph.CppStdDefault {
-				workspace.OptionsXcode.CppStd = cppStd
-			}
+			configurations, cppStd, cStd, err := buildProjectConfigurations(project, options)
+			currentCppStd = graph.EnsureCppStd(cppStd, currentCppStd)
+			currentCStd = graph.EnsureCStd(cStd, currentCStd)
 			return configurations, err
 		},
 		InitializeProject: func(project *graph.Project, options graph.WorkspaceOptions) (string, error) {
@@ -114,7 +107,7 @@ func initializeXcodeProject(project *Project) {
 	project.Resolved.GenDataXcode.PbxProj = filepath.Join(project.Resolved.GenDataXcode.XcodeProj.Path, "project.pbxproj")
 }
 
-func buildProjectConfigurations(project *denv.DevProject, options WorkspaceOptions) ([]*graph.ProjectConfiguration, CppStdType, error) {
+func buildProjectConfigurations(project *denv.DevProject, options WorkspaceOptions) ([]*graph.ProjectConfiguration, CppStdType, CStdType, error) {
 	configs := make([]denv.BuildConfig, 0, len(project.Configs))
 	for _, devConfig := range project.Configs {
 		if graph.ConfigSelected(devConfig.BuildConfig, options.BuildConfigs) {
@@ -123,16 +116,20 @@ func buildProjectConfigurations(project *denv.DevProject, options WorkspaceOptio
 	}
 	sort.Slice(configs, func(i, j int) bool { return configs[i].String() < configs[j].String() })
 	result := make([]*graph.ProjectConfiguration, 0, len(configs))
-	cppStd := CppStdDefault
+	cppStd := graph.CppStdDefault
+	cStd := graph.CStdDefault
 	for _, buildConfig := range configs {
 		vars := corepkg.NewVars(corepkg.VarsFormatCurlyBraces)
 		options.ResolveVars(project, options.BuildTarget, buildConfig, vars)
-		configuration, parsedCppStd, err := NewConfigurationFromVars(vars, options.BuildTarget, buildConfig)
+		configuration, parsedCppStd, parsedCStd, err := NewConfigurationFromVars(vars, options.BuildTarget, buildConfig)
 		if err != nil {
-			return nil, CppStdDefault, fmt.Errorf("create Xcode configuration for %s/%s: %w", project.Name, buildConfig.String(), err)
+			return nil, cppStd, cStd, fmt.Errorf("create Xcode configuration for %s/%s: %w", project.Name, buildConfig.String(), err)
 		}
-		if parsedCppStd != CppStdDefault {
+		if parsedCppStd != graph.CppStdDefault {
 			cppStd = parsedCppStd
+		}
+		if parsedCStd != graph.CStdDefault {
+			cStd = parsedCStd
 		}
 		if options.OSTargetVersion != "" {
 			if options.BuildTarget.AppleiOS() {
@@ -153,7 +150,7 @@ func buildProjectConfigurations(project *denv.DevProject, options WorkspaceOptio
 			OptionsXcode: configuration,
 		})
 	}
-	return result, cppStd, nil
+	return result, cppStd, cStd, nil
 }
 
 func resolveProjectConfiguration(project *graph.Project, local *graph.ProjectConfiguration, dependencies []*graph.ProjectConfiguration) error {

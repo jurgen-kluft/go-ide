@@ -9,9 +9,9 @@ import (
 	"github.com/jurgen-kluft/go-ide/graph"
 )
 
-func NewConfigurationFromVars(vars *corepkg.Vars, buildTarget denv.BuildTarget, buildConfig denv.BuildConfig) (*XcodeConfiguration, CppStdType, error) {
+func NewConfigurationFromVars(vars *corepkg.Vars, buildTarget denv.BuildTarget, buildConfig denv.BuildConfig) (*XcodeConfiguration, CppStdType, CStdType, error) {
 	if vars == nil {
-		return nil, CppStdDefault, fmt.Errorf("cannot create Xcode configuration from nil vars")
+		return nil, graph.CppStdDefault, graph.CStdDefault, fmt.Errorf("cannot create Xcode configuration from nil vars")
 	}
 	resolved := vars.Copy()
 	resolved.FinalResolve()
@@ -45,9 +45,15 @@ func NewConfigurationFromVars(vars *corepkg.Vars, buildTarget denv.BuildTarget, 
 
 	cppStd, err := parseXcodeCppStandard(resolved.GetFirstOrEmpty("build.cpp_standard"))
 	if err != nil {
-		return nil, CppStdDefault, err
+		return nil, graph.CppStdDefault, graph.CStdDefault, err
 	}
-	return configuration, cppStd, nil
+
+	cStd, err := parseXcodeCStandard(resolved.GetFirstOrEmpty("build.c_standard"))
+	if err != nil {
+		return nil, graph.CppStdDefault, graph.CStdDefault, err
+	}
+
+	return configuration, cppStd, cStd, nil
 }
 
 func mergeXcodeDevConfig(configuration *XcodeConfiguration, config *denv.DevConfig) {
@@ -74,19 +80,38 @@ func parseXcodeCppStandard(value string) (CppStdType, error) {
 	normalized = strings.TrimPrefix(normalized, "c++")
 	switch normalized {
 	case "":
-		return CppStdDefault, nil
+		return graph.CppStdDefault, nil
 	case "11":
-		return CppStd11, nil
+		return graph.CppStd11, nil
 	case "14":
-		return CppStd14, nil
+		return graph.CppStd14, nil
 	case "17":
-		return CppStd17, nil
+		return graph.CppStd17, nil
 	case "20":
-		return CppStd20, nil
+		return graph.CppStd20, nil
 	case "latest", "2b", "23":
-		return CppStdLatest, nil
+		return graph.CppStdLatest, nil
 	default:
-		return CppStdDefault, fmt.Errorf("unsupported Xcode C++ standard %q", value)
+		return graph.CppStdDefault, fmt.Errorf("unsupported Xcode C++ standard %q", value)
+	}
+}
+
+func parseXcodeCStandard(value string) (CStdType, error) {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	normalized = strings.TrimPrefix(normalized, "-std=")
+	normalized = strings.TrimPrefix(normalized, "gnu")
+	normalized = strings.TrimPrefix(normalized, "c")
+	switch normalized {
+	case "":
+		return graph.CStdDefault, nil
+	case "11":
+		return graph.CStd11, nil
+	case "17":
+		return graph.CStd17, nil
+	case "latest", "2b", "23":
+		return graph.CStdLatest, nil
+	default:
+		return graph.CStdDefault, fmt.Errorf("unsupported Xcode C standard %q", value)
 	}
 }
 

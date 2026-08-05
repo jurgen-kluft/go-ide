@@ -147,6 +147,27 @@ type Project struct {
 	Resolved        *ProjectResolved
 }
 
+type ProjectResolved struct {
+	HasOutputTarget bool
+	PchHeader       *FileEntry
+	GenDataXcode    *XcodeProjectConfig
+}
+
+func NewProjectResolved() *ProjectResolved {
+	return &ProjectResolved{GenDataXcode: NewXcodeProjectConfig()}
+}
+
+type ProjectSettings struct {
+	Group              string
+	IsGuiApp           bool
+	CppAsObjCpp        bool
+	MultiThreadedBuild bool
+	PchHeader          string
+	Xcode              struct {
+		BundleIdentifier string
+	}
+}
+
 func NewProject(definition *denv.DevProject, outputDir string) *Project {
 	project := &Project{
 		Definition:      definition,

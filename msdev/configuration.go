@@ -2,8 +2,8 @@ package msdev
 
 import "github.com/jurgen-kluft/go-ide/graph"
 
-type VsCStandard = graph.VsCStandard
-type VsCppStandard = graph.VsCppStandard
+type VsCStandard = graph.CStdType
+type VsCppStandard = graph.CppStdType
 type VsOptimization = graph.VsOptimization
 type VsWarningLevel = graph.VsWarningLevel
 type VsDebugInformation = graph.VsDebugInformation
@@ -18,15 +18,15 @@ type VsLinkOptions = graph.VsLinkOptions
 type VsConfiguration = graph.VsConfiguration
 
 const (
-	VsCStandardDefault                    = graph.VsCStandardDefault
-	VsCStandard11                         = graph.VsCStandard11
-	VsCStandard17                         = graph.VsCStandard17
-	VsCStandardLatest                     = graph.VsCStandardLatest
-	VsCppStandardDefault                  = graph.VsCppStandardDefault
-	VsCppStandard14                       = graph.VsCppStandard14
-	VsCppStandard17                       = graph.VsCppStandard17
-	VsCppStandard20                       = graph.VsCppStandard20
-	VsCppStandardLatest                   = graph.VsCppStandardLatest
+	VsCStandardDefault                    = graph.CStdDefault
+	VsCStandard11                         = graph.CStd11
+	VsCStandard17                         = graph.CStd17
+	VsCStandardLatest                     = graph.CStdLatest
+	VsCppStandardDefault                  = graph.CppStdDefault
+	VsCppStandard14                       = graph.CppStd14
+	VsCppStandard17                       = graph.CppStd17
+	VsCppStandard20                       = graph.CppStd20
+	VsCppStandardLatest                   = graph.CppStdLatest
 	VsOptimizationDefault                 = graph.VsOptimizationDefault
 	VsOptimizationDisabled                = graph.VsOptimizationDisabled
 	VsOptimizationSize                    = graph.VsOptimizationSize

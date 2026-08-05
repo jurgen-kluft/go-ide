@@ -1,24 +1,5 @@
 package graph
 
-type VsCStandard uint8
-
-const (
-	VsCStandardDefault VsCStandard = iota
-	VsCStandard11
-	VsCStandard17
-	VsCStandardLatest
-)
-
-type VsCppStandard uint8
-
-const (
-	VsCppStandardDefault VsCppStandard = iota
-	VsCppStandard14
-	VsCppStandard17
-	VsCppStandard20
-	VsCppStandardLatest
-)
-
 type VsOptimization uint8
 
 const (
@@ -134,8 +115,8 @@ func (options VsLinkOptions) Has(option VsLinkOptions) bool {
 }
 
 type VsConfiguration struct {
-	CStandard          VsCStandard
-	CppStandard        VsCppStandard
+	CStandard          CStdType
+	CppStandard        CppStdType
 	Optimization       VsOptimization
 	WarningLevel       VsWarningLevel
 	DebugInformation   VsDebugInformation

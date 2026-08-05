@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jurgen-kluft/gide/graph"
 	corepkg "github.com/jurgen-kluft/go-core"
 	"github.com/jurgen-kluft/go-ide/denv"
 )
@@ -55,7 +56,7 @@ func TestBuildWorkspaceAndGeneratePackage(t *testing.T) {
 		BuildConfigs:    []denv.BuildConfig{buildConfig},
 		OSTargetVersion: "14.0",
 	}
-	workspace, err := BuildWorkspace(pkg, options)
+	workspace, err := buildWorkspace(pkg, options)
 	if err != nil {
 		t.Fatalf("BuildWorkspace() error = %v", err)
 	}
@@ -94,7 +95,7 @@ func TestBuildWorkspaceAndGeneratePackage(t *testing.T) {
 }
 
 func TestBuildWorkspaceRejectsNonAppleTarget(t *testing.T) {
-	_, err := BuildWorkspace(&denv.Package{RepoName: "example"}, WorkspaceOptions{
+	_, err := buildWorkspace(&denv.Package{RepoName: "example"}, WorkspaceOptions{
 		OutputDir:   t.TempDir(),
 		BuildTarget: denv.BuildTargetWindowsX64,
 	})
@@ -126,7 +127,7 @@ func TestBuildProjectConfigurationsUsesIOSTargetVersion(t *testing.T) {
 }
 
 func TestNewWorkspaceInitializesGraph(t *testing.T) {
-	workspace := NewWorkspace("example", t.TempDir(), denv.BuildTargetMacUniversal)
+	workspace := newWorkspace("example", t.TempDir(), denv.BuildTargetMacUniversal)
 	if workspace.OptionsXcode == nil || workspace.OptionsXcode.CppStd != CppStd17 {
 		t.Fatalf("workspace Xcode options = %#v, want C++17 defaults", workspace.OptionsXcode)
 	}
@@ -134,8 +135,8 @@ func TestNewWorkspaceInitializesGraph(t *testing.T) {
 		t.Fatal("workspace graph is not initialized")
 	}
 
-	second := NewProject("zeta", denv.BuildTypeStaticLibrary, t.TempDir(), workspace.OutputDir)
-	first := NewProject("alpha", denv.BuildTypeApplication, t.TempDir(), workspace.OutputDir)
+	second := newProject("zeta", denv.BuildTypeStaticLibrary, t.TempDir(), workspace.OutputDir)
+	first := newProject("alpha", denv.BuildTypeApplication, t.TempDir(), workspace.OutputDir)
 	workspace.AddProject(second, "libraries")
 	workspace.AddProject(first, "applications")
 	if workspace.Projects[0] != first || workspace.Projects[1] != second {
@@ -147,7 +148,7 @@ func TestNewWorkspaceInitializesGraph(t *testing.T) {
 }
 
 func TestXcodeConfigurationDefaults(t *testing.T) {
-	mac := NewXcodeConfiguration(denv.BuildTargetMacArm64, denv.NewDebugConfig())
+	mac := graph.NewXcodeConfiguration(denv.BuildTargetMacArm64, denv.NewDebugConfig())
 	if value, ok := setting(mac.XcodeSettings, "SDKROOT"); !ok || value != "macosx" {
 		t.Errorf("macOS SDKROOT = %q, %v, want macosx", value, ok)
 	}
@@ -158,7 +159,7 @@ func TestXcodeConfigurationDefaults(t *testing.T) {
 		t.Errorf("macOS defaults = defines %v, link flags %v", mac.CppDefines.Values, mac.LinkFlags.Values)
 	}
 
-	ios := NewXcodeConfiguration(denv.BuildTargetAppleiOS, denv.NewReleaseConfig())
+	ios := graph.NewXcodeConfiguration(denv.BuildTargetAppleiOS, denv.NewReleaseConfig())
 	if value, ok := setting(ios.XcodeSettings, "SDKROOT"); !ok || value != "iphoneos" {
 		t.Errorf("iOS SDKROOT = %q, %v, want iphoneos", value, ok)
 	}
@@ -172,10 +173,10 @@ func TestXcodeConfigurationDefaults(t *testing.T) {
 
 func TestXcodeConfigurationResolve(t *testing.T) {
 	outputDir := t.TempDir()
-	project := NewProject("example", denv.BuildTypeStaticLibrary, t.TempDir(), outputDir)
-	local := NewXcodeConfiguration(denv.BuildTargetMacUniversal, denv.NewDebugConfig())
+	project := newProject("example", denv.BuildTypeStaticLibrary, t.TempDir(), outputDir)
+	local := graph.NewXcodeConfiguration(denv.BuildTargetMacUniversal, denv.NewDebugConfig())
 	local.CppDefines.Add("LOCAL")
-	dependency := NewXcodeConfiguration(denv.BuildTargetMacUniversal, denv.NewDebugConfig())
+	dependency := graph.NewXcodeConfiguration(denv.BuildTargetMacUniversal, denv.NewDebugConfig())
 	dependency.CppDefines.Add("DEPENDENCY")
 	dependency.IncludeDirs.Add(denv.PinnedPath{Root: outputDir, Base: "dependency", Sub: "include"})
 
@@ -195,9 +196,9 @@ func TestXcodeConfigurationResolve(t *testing.T) {
 }
 
 func TestWorkspaceValidate(t *testing.T) {
-	workspace := NewWorkspace("example", t.TempDir(), denv.BuildTargetMacX64)
-	project := NewProject("example", denv.BuildTypeApplication, t.TempDir(), workspace.OutputDir)
-	configuration := NewXcodeConfiguration(workspace.BuildTarget, denv.NewDebugConfig()).Resolve(project, workspace.OutputDir)
+	workspace := newWorkspace("example", t.TempDir(), denv.BuildTargetMacX64)
+	project := newProject("example", denv.BuildTypeApplication, t.TempDir(), workspace.OutputDir)
+	configuration := graph.NewXcodeConfiguration(workspace.BuildTarget, denv.NewDebugConfig()).Resolve(project, workspace.OutputDir)
 	project.AddXcodeConfiguration(configuration)
 	workspace.AddProject(project, "applications")
 	if err := workspace.Validate(); err != nil {
@@ -211,7 +212,7 @@ func TestWorkspaceValidate(t *testing.T) {
 }
 
 func TestWorkspaceValidateRejectsIncompleteWorkspace(t *testing.T) {
-	workspace := NewWorkspace("example", t.TempDir(), denv.BuildTargetWindowsX64)
+	workspace := newWorkspace("example", t.TempDir(), denv.BuildTargetWindowsX64)
 	if err := workspace.Validate(); err == nil || !strings.Contains(err.Error(), "macOS or iOS") {
 		t.Fatalf("Validate() error = %v, want Apple target error", err)
 	}
@@ -224,9 +225,9 @@ func TestWorkspaceValidateRejectsIncompleteWorkspace(t *testing.T) {
 
 func TestXcodeGeneratorGenerate(t *testing.T) {
 	outputDir := t.TempDir()
-	workspace := NewWorkspace("example", outputDir, denv.BuildTargetMacArm64)
-	project := NewProject("example", denv.BuildTypeStaticLibrary, t.TempDir(), outputDir)
-	configuration := NewXcodeConfiguration(workspace.BuildTarget, denv.NewDebugConfig()).Resolve(project, outputDir)
+	workspace := newWorkspace("example", outputDir, denv.BuildTargetMacArm64)
+	project := newProject("example", denv.BuildTypeStaticLibrary, t.TempDir(), outputDir)
+	configuration := graph.NewXcodeConfiguration(workspace.BuildTarget, denv.NewDebugConfig()).Resolve(project, outputDir)
 	project.AddXcodeConfiguration(configuration)
 	workspace.AddProject(project, "libraries")
 
@@ -264,12 +265,12 @@ func TestXcodeProjectCollectsAndEmitsSharedGraph(t *testing.T) {
 	}
 
 	outputDir := filepath.Join(root, "ide")
-	workspace := NewWorkspace("example", outputDir, denv.BuildTargetMacArm64)
-	project := NewProject("example", definition.BuildType, projectDir, outputDir)
+	workspace := newWorkspace("example", outputDir, denv.BuildTargetMacArm64)
+	project := newProject("example", definition.BuildType, projectDir, outputDir)
 	if err := project.CollectFiles(definition, workspace.BuildTarget); err != nil {
 		t.Fatalf("CollectFiles() error = %v", err)
 	}
-	configuration := NewXcodeConfiguration(workspace.BuildTarget, denv.NewDebugConfig()).Resolve(project, outputDir)
+	configuration := graph.NewXcodeConfiguration(workspace.BuildTarget, denv.NewDebugConfig()).Resolve(project, outputDir)
 	project.AddXcodeConfiguration(configuration)
 	workspace.AddProject(project, "applications")
 
@@ -298,7 +299,7 @@ func readXcodeTestFile(t *testing.T, path string) string {
 	return string(content)
 }
 
-func setting(settings *OrderedSettings, key string) (string, bool) {
+func setting(settings *corepkg.KeyValueSet, key string) (string, bool) {
 	for index, candidate := range settings.Keys {
 		if candidate == key {
 			return settings.Values[index], true

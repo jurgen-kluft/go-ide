@@ -2,123 +2,13 @@ package graph
 
 import (
 	"path/filepath"
-	"strings"
 
 	corepkg "github.com/jurgen-kluft/go-core"
 	"github.com/jurgen-kluft/go-ide/denv"
 )
 
-type CppStdType uint8
-
-const (
-	CppStdUnknown CppStdType = iota
-	CppStd11
-	CppStd14
-	CppStd17
-	CppStd20
-	CppStdLatest
-)
-
 type WorkspaceOptionsXcode struct {
 	CppStd CppStdType
-}
-
-type OrderedSettings struct {
-	Keys   []string
-	Values []string
-	index  map[string]int
-}
-
-func NewOrderedSettings() *OrderedSettings {
-	return &OrderedSettings{index: make(map[string]int)}
-}
-
-func (settings *OrderedSettings) Set(key, value string) {
-	if index, ok := settings.index[key]; ok {
-		settings.Values[index] = value
-		return
-	}
-	settings.index[key] = len(settings.Keys)
-	settings.Keys = append(settings.Keys, key)
-	settings.Values = append(settings.Values, value)
-}
-
-func (settings *OrderedSettings) Copy() *OrderedSettings {
-	copy := NewOrderedSettings()
-	for index, key := range settings.Keys {
-		copy.Set(key, settings.Values[index])
-	}
-	return copy
-}
-
-func (settings *OrderedSettings) Merge(other *OrderedSettings) {
-	for index, key := range other.Keys {
-		settings.Set(key, other.Values[index])
-	}
-}
-
-type StringValues struct {
-	Values []string
-	seen   map[string]bool
-}
-
-func NewStringValues() *StringValues {
-	return &StringValues{seen: make(map[string]bool)}
-}
-
-func (values *StringValues) Add(value string) {
-	key := strings.ToLower(value)
-	if value == "" || values.seen[key] {
-		return
-	}
-	values.seen[key] = true
-	values.Values = append(values.Values, value)
-}
-
-func (values *StringValues) Copy() *StringValues {
-	copy := NewStringValues()
-	for _, value := range values.Values {
-		copy.Add(value)
-	}
-	return copy
-}
-
-func (values *StringValues) Merge(other *StringValues) {
-	for _, value := range other.Values {
-		values.Add(value)
-	}
-}
-
-type PinnedPaths struct {
-	Values []denv.PinnedPath
-	seen   map[string]bool
-}
-
-func NewPinnedPaths() *PinnedPaths {
-	return &PinnedPaths{seen: make(map[string]bool)}
-}
-
-func (paths *PinnedPaths) Add(path denv.PinnedPath) {
-	key := strings.ToLower(path.String())
-	if paths.seen[key] {
-		return
-	}
-	paths.seen[key] = true
-	paths.Values = append(paths.Values, path)
-}
-
-func (paths *PinnedPaths) Copy() *PinnedPaths {
-	copy := NewPinnedPaths()
-	for _, path := range paths.Values {
-		copy.Add(path)
-	}
-	return copy
-}
-
-func (paths *PinnedPaths) Merge(other *PinnedPaths) {
-	for _, path := range other.Values {
-		paths.Add(path)
-	}
 }
 
 type XcodeConfigurationUUIDs struct {
@@ -135,11 +25,11 @@ type XcodeConfigurationResolved struct {
 type XcodeConfiguration struct {
 	BuildTarget   denv.BuildTarget
 	BuildConfig   denv.BuildConfig
-	CppDefines    *StringValues
-	CppFlags      *StringValues
-	IncludeDirs   *PinnedPaths
-	LinkFlags     *StringValues
-	XcodeSettings *OrderedSettings
+	CppDefines    *corepkg.ValueSet
+	CppFlags      *corepkg.ValueSet
+	IncludeDirs   *denv.PinnedPaths
+	LinkFlags     *corepkg.ValueSet
+	XcodeSettings *corepkg.KeyValueSet
 	GenDataXcode  XcodeConfigurationUUIDs
 	Resolved      *XcodeConfigurationResolved
 }
@@ -148,11 +38,11 @@ func NewXcodeConfiguration(buildTarget denv.BuildTarget, buildConfig denv.BuildC
 	configuration := &XcodeConfiguration{
 		BuildTarget:   buildTarget,
 		BuildConfig:   buildConfig,
-		CppDefines:    NewStringValues(),
-		CppFlags:      NewStringValues(),
-		IncludeDirs:   NewPinnedPaths(),
-		LinkFlags:     NewStringValues(),
-		XcodeSettings: NewOrderedSettings(),
+		CppDefines:    corepkg.NewValueSet(),
+		CppFlags:      corepkg.NewValueSet(),
+		IncludeDirs:   denv.NewPinnedPaths(),
+		LinkFlags:     corepkg.NewValueSet(),
+		XcodeSettings: corepkg.NewKeyValueSet(),
 		Resolved: &XcodeConfigurationResolved{
 			OutputTarget: NewFileEntry(""),
 			BuildTmpDir:  NewFileEntry(""),
@@ -296,25 +186,4 @@ type XcodeProjectConfig struct {
 
 func NewXcodeProjectConfig() *XcodeProjectConfig {
 	return &XcodeProjectConfig{XcodeProj: NewFileEntry("")}
-}
-
-type ProjectResolved struct {
-	HasOutputTarget bool
-	PchHeader       *FileEntry
-	GenDataXcode    *XcodeProjectConfig
-}
-
-func NewProjectResolved() *ProjectResolved {
-	return &ProjectResolved{GenDataXcode: NewXcodeProjectConfig()}
-}
-
-type ProjectSettings struct {
-	Group              string
-	IsGuiApp           bool
-	CppAsObjCpp        bool
-	MultiThreadedBuild bool
-	PchHeader          string
-	Xcode              struct {
-		BundleIdentifier string
-	}
 }

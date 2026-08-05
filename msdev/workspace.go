@@ -14,7 +14,15 @@ type Workspace = graph.Workspace
 type WorkspaceOptions = graph.WorkspaceOptions
 type VarsResolver = graph.VarsResolver
 
-func BuildWorkspace(pkg *denv.Package, options WorkspaceOptions) (*Workspace, error) {
+func GeneratePackage(pkg *denv.Package, options WorkspaceOptions) error {
+	workspace, err := buildWorkspace(pkg, options)
+	if err != nil {
+		return err
+	}
+	return Generate(*workspace)
+}
+
+func buildWorkspace(pkg *denv.Package, options WorkspaceOptions) (*Workspace, error) {
 	return graph.BuildWorkspace(pkg, options, graph.WorkspaceBuilderBackend{
 		Name: "Visual Studio",
 		ValidateTarget: func(target denv.BuildTarget) error {
@@ -30,14 +38,6 @@ func BuildWorkspace(pkg *denv.Package, options WorkspaceOptions) (*Workspace, er
 		BuildProjectConfigurations: buildProjectConfigurations,
 		ResolveConfiguration:       resolveProjectConfiguration,
 	})
-}
-
-func GeneratePackage(pkg *denv.Package, options WorkspaceOptions) error {
-	workspace, err := BuildWorkspace(pkg, options)
-	if err != nil {
-		return err
-	}
-	return Generate(*workspace)
 }
 
 func buildProjectConfigurations(project *denv.DevProject, options WorkspaceOptions) ([]*ProjectConfiguration, error) {

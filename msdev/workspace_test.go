@@ -48,9 +48,9 @@ func TestGeneratePackage(t *testing.T) {
 		},
 	}
 
-	workspace, err := BuildWorkspace(pkg, options)
+	workspace, err := buildWorkspace(pkg, options)
 	if err != nil {
-		t.Fatalf("BuildWorkspace() error = %v", err)
+		t.Fatalf("buildWorkspace() error = %v", err)
 	}
 	if workspace.Name != "example" || workspace.StartupProject != "example" {
 		t.Fatalf("workspace identity = %q/%q, want example/example", workspace.Name, workspace.StartupProject)
@@ -95,12 +95,12 @@ func TestGeneratePackage(t *testing.T) {
 }
 
 func TestBuildWorkspaceRejectsNonWindowsTarget(t *testing.T) {
-	_, err := BuildWorkspace(&denv.Package{RepoName: "example"}, WorkspaceOptions{
+	_, err := buildWorkspace(&denv.Package{RepoName: "example"}, WorkspaceOptions{
 		OutputDir:   t.TempDir(),
 		BuildTarget: denv.BuildTargetLinuxX64,
 	})
 	if err == nil || !strings.Contains(err.Error(), "Windows target") {
-		t.Fatalf("BuildWorkspace() error = %v, want Windows target error", err)
+		t.Fatalf("buildWorkspace() error = %v, want Windows target error", err)
 	}
 }
 
@@ -110,7 +110,7 @@ func TestBuildWorkspaceUsesPackageVars(t *testing.T) {
 		vars.Set("build.cpp_standard", "/std:c++17")
 		vars.Set("compiler.c.link.extra_flags", "/ERRORREPORT:PromptImmediately", "/MACHINE:X64")
 	})
-	workspace, err := BuildWorkspace(pkg, WorkspaceOptions{
+	workspace, err := buildWorkspace(pkg, WorkspaceOptions{
 		OutputDir:   t.TempDir(),
 		BuildTarget: denv.BuildTargetWindowsX64,
 		BuildConfigs: []denv.BuildConfig{
@@ -118,7 +118,7 @@ func TestBuildWorkspaceUsesPackageVars(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("BuildWorkspace() error = %v", err)
+		t.Fatalf("buildWorkspace() error = %v", err)
 	}
 	if len(workspace.Projects) != 1 || len(workspace.Projects[0].Configurations) != 1 {
 		t.Fatalf("workspace projects/configurations = %d/%d, want 1/1", len(workspace.Projects), len(workspace.Projects[0].Configurations))
@@ -169,7 +169,7 @@ func TestBuildWorkspaceResolvesDependencyConfigurations(t *testing.T) {
 		Unittests: map[string]*denv.DevProject{},
 		TestLibs:  map[string]*denv.DevProject{},
 	}
-	workspace, err := BuildWorkspace(pkg, WorkspaceOptions{
+	workspace, err := buildWorkspace(pkg, WorkspaceOptions{
 		OutputDir:   filepath.Join(root, "msdev"),
 		BuildTarget: denv.BuildTargetWindowsX64,
 		ResolveVars: func(project *denv.DevProject, _ denv.BuildTarget, _ denv.BuildConfig, vars *corepkg.Vars) {
@@ -190,7 +190,7 @@ func TestBuildWorkspaceResolvesDependencyConfigurations(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("BuildWorkspace() error = %v", err)
+		t.Fatalf("buildWorkspace() error = %v", err)
 	}
 
 	var appProject *Project
@@ -273,13 +273,13 @@ func TestBuildWorkspaceRejectsDependencyCycle(t *testing.T) {
 	b.Dependencies.Add(a)
 	pkg := workspaceTestPackage(map[string]*denv.DevProject{"a": a, "b": b})
 
-	_, err := BuildWorkspace(pkg, WorkspaceOptions{
+	_, err := buildWorkspace(pkg, WorkspaceOptions{
 		OutputDir:   t.TempDir(),
 		BuildTarget: denv.BuildTargetWindowsX64,
 		ResolveVars: func(_ *denv.DevProject, _ denv.BuildTarget, _ denv.BuildConfig, _ *corepkg.Vars) {},
 	})
 	if err == nil || !strings.Contains(err.Error(), "a -> b -> a") {
-		t.Fatalf("BuildWorkspace() error = %v, want dependency cycle", err)
+		t.Fatalf("buildWorkspace() error = %v, want dependency cycle", err)
 	}
 }
 
@@ -306,13 +306,13 @@ func TestBuildWorkspaceRequiresExactDependencyConfig(t *testing.T) {
 	pkg := workspaceTestPackage(map[string]*denv.DevProject{"dependency": dependency})
 	pkg.MainApps[app.Name] = app
 
-	workspace, err := BuildWorkspace(pkg, WorkspaceOptions{
+	workspace, err := buildWorkspace(pkg, WorkspaceOptions{
 		OutputDir:   t.TempDir(),
 		BuildTarget: denv.BuildTargetWindowsX64,
 		ResolveVars: func(_ *denv.DevProject, _ denv.BuildTarget, _ denv.BuildConfig, _ *corepkg.Vars) {},
 	})
 	if err != nil {
-		t.Fatalf("BuildWorkspace() error = %v", err)
+		t.Fatalf("buildWorkspace() error = %v", err)
 	}
 	for _, project := range workspace.Projects {
 		if project.Definition.Name == app.Name && containsString(project.Configurations[0].OptionsVs.Defines, "DEPENDENCY_DEV") {

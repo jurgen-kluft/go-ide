@@ -11,7 +11,7 @@ import (
 
 func NewConfigurationFromVars(vars *corepkg.Vars, buildTarget denv.BuildTarget, buildConfig denv.BuildConfig) (*XcodeConfiguration, CppStdType, error) {
 	if vars == nil {
-		return nil, CppStdUnknown, fmt.Errorf("cannot create Xcode configuration from nil vars")
+		return nil, CppStdDefault, fmt.Errorf("cannot create Xcode configuration from nil vars")
 	}
 	resolved := vars.Copy()
 	resolved.FinalResolve()
@@ -45,7 +45,7 @@ func NewConfigurationFromVars(vars *corepkg.Vars, buildTarget denv.BuildTarget, 
 
 	cppStd, err := parseXcodeCppStandard(resolved.GetFirstOrEmpty("build.cpp_standard"))
 	if err != nil {
-		return nil, CppStdUnknown, err
+		return nil, CppStdDefault, err
 	}
 	return configuration, cppStd, nil
 }
@@ -74,7 +74,7 @@ func parseXcodeCppStandard(value string) (CppStdType, error) {
 	normalized = strings.TrimPrefix(normalized, "c++")
 	switch normalized {
 	case "":
-		return CppStdUnknown, nil
+		return CppStdDefault, nil
 	case "11":
 		return CppStd11, nil
 	case "14":
@@ -86,7 +86,7 @@ func parseXcodeCppStandard(value string) (CppStdType, error) {
 	case "latest", "2b", "23":
 		return CppStdLatest, nil
 	default:
-		return CppStdUnknown, fmt.Errorf("unsupported Xcode C++ standard %q", value)
+		return CppStdDefault, fmt.Errorf("unsupported Xcode C++ standard %q", value)
 	}
 }
 

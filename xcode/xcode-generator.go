@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	corepkg "github.com/jurgen-kluft/go-core"
+	"github.com/jurgen-kluft/go-ide/graph"
 )
 
 type XcodeGenerator struct {
@@ -71,7 +72,7 @@ func (g *XcodeGenerator) genWorkspaceGroup(wr *corepkg.XmlWriter, group *Project
 }
 
 func (g *XcodeGenerator) genProjectGenUuid(proj *Project) {
-	proj.Resolved.GenDataXcode = NewXcodeProjectConfig()
+	proj.Resolved.GenDataXcode = graph.NewXcodeProjectConfig()
 
 	gd := proj.Resolved.GenDataXcode
 	gd.XcodeProj.Init(filepath.Join(g.Workspace.OutputDir, proj.Name+".xcodeproj"), true)
@@ -175,13 +176,13 @@ func (g *XcodeGenerator) genFileReference(wr *XcodeWriter, proj *Project, f *Fil
 
 		explicitFileType := ""
 		switch f.Type {
-		case FileTypeCppSource:
+		case graph.FileTypeCppSource:
 			if proj.Settings.CppAsObjCpp {
 				explicitFileType = "sourcecode.cpp.objcpp"
 			} else {
 				explicitFileType = "sourcecode.cpp.cpp"
 			}
-		case FileTypeCSource:
+		case graph.FileTypeCSource:
 			if proj.Settings.CppAsObjCpp {
 				explicitFileType = "sourcecode.c.objc"
 			} else {

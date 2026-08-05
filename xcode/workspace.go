@@ -39,7 +39,7 @@ func GeneratePackage(pkg *denv.Package, options WorkspaceOptions) error {
 }
 
 func buildWorkspace(pkg *denv.Package, options WorkspaceOptions) (*Workspace, error) {
-	requestedCppStd := options.Xcode.CppStd
+	requestedCppStd := options.OptionsXcode.CppStd
 	var workspace *Workspace
 	return graph.BuildWorkspace(pkg, options, graph.WorkspaceBuilderBackend{
 		Name: "Xcode",
@@ -51,7 +51,7 @@ func buildWorkspace(pkg *denv.Package, options WorkspaceOptions) (*Workspace, er
 		},
 		InitializeWorkspace: func(sharedWorkspace *graph.Workspace, options graph.WorkspaceOptions) {
 			workspace = sharedWorkspace
-			xcodeOptions := options.Xcode
+			xcodeOptions := options.OptionsXcode
 			if xcodeOptions.CppStd == graph.CppStdDefault {
 				xcodeOptions.CppStd = graph.CppStd17
 			}

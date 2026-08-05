@@ -28,13 +28,17 @@ type WorkspaceOptions struct {
 	BuildConfigs    []denv.BuildConfig
 	StartupProject  string
 	OSTargetVersion string
-	VisualStudio    WorkspaceOptionsVs
-	Xcode           WorkspaceOptionsXcode
+	OptionsVs       WorkspaceOptionsVs
+	OptionsXcode    WorkspaceOptionsXcode
 	ResolveVars     VarsResolver
 }
 
 type WorkspaceOptionsVs struct {
 	PlatformToolset string
+}
+
+type WorkspaceOptionsXcode struct {
+	CppStd CppStdType
 }
 
 func NewWorkspace(name, outputDir string, buildTarget denv.BuildTarget) *Workspace {

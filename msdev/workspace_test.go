@@ -38,7 +38,7 @@ func TestGeneratePackage(t *testing.T) {
 		BuildTarget:     denv.BuildTargetWindowsX64,
 		BuildConfigs:    []denv.BuildConfig{denv.NewDebugDevConfig()},
 		OSTargetVersion: "10.0.22621.0",
-		VisualStudio: graph.WorkspaceOptionsVs{
+		OptionsVs: graph.WorkspaceOptionsVs{
 			PlatformToolset: "v142",
 		},
 		ResolveVars: func(_ *denv.DevProject, _ denv.BuildTarget, _ denv.BuildConfig, vars *corepkg.Vars) {
@@ -239,7 +239,7 @@ func TestBuildWorkspaceResolvesDependencyConfigurations(t *testing.T) {
 		"side":   stableGuid("side"),
 		"base":   stableGuid("base"),
 	}
-	if err := generateProject(*workspace, appProject, nil, projectGuids); err != nil {
+	if err := generateProject(workspace, appProject, nil, projectGuids); err != nil {
 		t.Fatalf("generateProject() error = %v", err)
 	}
 	generated := readTestFile(t, filepath.Join(workspace.OutputDir, "app.vcxproj"))

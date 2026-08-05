@@ -21,8 +21,16 @@ const cppProjectTypeGuid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}"
 type ProjectConfiguration = graph.ProjectConfiguration
 type Project = graph.Project
 
-func Generate(workspace Workspace) error {
-	if err := validateWorkspace(&workspace); err != nil {
+func GeneratePackage(pkg *denv.Package, options WorkspaceOptions) error {
+	workspace, err := buildWorkspace(pkg, options)
+	if err != nil {
+		return err
+	}
+	return generateWorkspace(workspace)
+}
+
+func generateWorkspace(workspace *Workspace) error {
+	if err := validateWorkspace(workspace); err != nil {
 		return err
 	}
 
@@ -103,7 +111,7 @@ func validateWorkspace(workspace *Workspace) error {
 	return nil
 }
 
-func generateProject(workspace Workspace, project *Project, files *graph.ProjectFiles, projectGuids map[string]string) error {
+func generateProject(workspace *Workspace, project *Project, files *graph.ProjectFiles, projectGuids map[string]string) error {
 	filename := filepath.Join(workspace.OutputDir, project.Definition.Name+".vcxproj")
 	workspaceOptions := visualStudioWorkspaceOptions(workspace)
 	return writeXml(filename, func(document *xmlDocument) error {
@@ -213,7 +221,7 @@ func generateProject(workspace Workspace, project *Project, files *graph.Project
 	})
 }
 
-func visualStudioWorkspaceOptions(workspace Workspace) graph.WorkspaceOptionsVs {
+func visualStudioWorkspaceOptions(workspace *Workspace) graph.WorkspaceOptionsVs {
 	options := graph.WorkspaceOptionsVs{PlatformToolset: "v143"}
 	if workspace.OptionsVs != nil {
 		if workspace.OptionsVs.PlatformToolset != "" {
@@ -265,7 +273,7 @@ func writeLinkOptions(document *xmlDocument, options VsConfiguration) {
 	document.end("Link")
 }
 
-func generateFilters(workspace Workspace, project *Project, files *graph.ProjectFiles) error {
+func generateFilters(workspace *Workspace, project *Project, files *graph.ProjectFiles) error {
 	filename := filepath.Join(workspace.OutputDir, project.Definition.Name+".vcxproj.filters")
 	return writeXml(filename, func(document *xmlDocument) error {
 		document.start("Project", attr("ToolsVersion", "4.0"), attr("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003"))
@@ -318,7 +326,7 @@ func visualStudioFileTag(file *graph.FileEntry) string {
 	}
 }
 
-func generateSolution(workspace Workspace, projects []*Project, projectGuids map[string]string) error {
+func generateSolution(workspace *Workspace, projects []*Project, projectGuids map[string]string) error {
 	var buffer bytes.Buffer
 	buffer.WriteString("Microsoft Visual Studio Solution File, Format Version 12.00\r\n")
 	buffer.WriteString("# Visual Studio Version 17\r\n")

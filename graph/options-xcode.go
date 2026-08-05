@@ -7,10 +7,6 @@ import (
 	"github.com/jurgen-kluft/go-ide/denv"
 )
 
-type WorkspaceOptionsXcode struct {
-	CppStd CppStdType
-}
-
 type XcodeConfigurationUUIDs struct {
 	ProjectConfigUuid corepkg.UUID
 	TargetUuid        corepkg.UUID

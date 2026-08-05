@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jurgen-kluft/gide/graph"
 	corepkg "github.com/jurgen-kluft/go-core"
 	"github.com/jurgen-kluft/go-ide/denv"
+	"github.com/jurgen-kluft/go-ide/graph"
 )
 
 func TestBuildWorkspaceAndGeneratePackage(t *testing.T) {

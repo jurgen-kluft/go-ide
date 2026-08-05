@@ -29,6 +29,7 @@ err := msdev.GeneratePackage(pkg, msdev.WorkspaceOptions{
 		denv.NewDebugConfig(),
 		denv.NewReleaseConfig(),
 	},
+    OSTargetVersion: "10.0.22621.0",
 })
 ```
 
@@ -48,7 +49,7 @@ err := xcode.GeneratePackage(pkg, xcode.WorkspaceOptions{
 	BuildTarget:     denv.BuildTargetMacArm64,
 	BuildConfigs:    []denv.BuildConfig{denv.NewDebugConfig()},
 	OSTargetVersion: "14.0",
-	Xcode: graph.WorkspaceOptionsXcode{
+	Xcode: graph.XcodeWorkspaceOptions{
 		CppStd: graph.CppStd20,
 	},
 })

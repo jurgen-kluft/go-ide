@@ -79,7 +79,7 @@ func TestGenerateVs2022Workspace(t *testing.T) {
 		}},
 	}
 
-	if err := Generate(workspace); err != nil {
+	if err := generateWorkspace(&workspace); err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
 
@@ -111,7 +111,7 @@ func TestGenerateVs2022Workspace(t *testing.T) {
 		filtersPath:  filtersXml,
 		solutionPath: solution,
 	}
-	if err := Generate(workspace); err != nil {
+	if err := generateWorkspace(&workspace); err != nil {
 		t.Fatalf("second Generate() error = %v", err)
 	}
 	for path, expected := range before {
@@ -138,10 +138,10 @@ func TestGenerateProjectAndFiltersIncludeHeaders(t *testing.T) {
 	virtualFolders.AssignUUIDs("hello", []*graph.FileEntryDict{group})
 	headers := &graph.ProjectFiles{Groups: []*graph.FileEntryDict{group}, VirtualFolders: virtualFolders}
 
-	if err := generateProject(workspace, project, headers, map[string]string{"hello": stableGuid("hello")}); err != nil {
+	if err := generateProject(&workspace, project, headers, map[string]string{"hello": stableGuid("hello")}); err != nil {
 		t.Fatalf("generateProject() error = %v", err)
 	}
-	if err := generateFilters(workspace, project, headers); err != nil {
+	if err := generateFilters(&workspace, project, headers); err != nil {
 		t.Fatalf("generateFilters() error = %v", err)
 	}
 
@@ -182,11 +182,12 @@ func TestWriteXmlPreservesLiteralApostrophes(t *testing.T) {
 
 func TestGenerateRejectsProjectWithoutConfigurations(t *testing.T) {
 	project := &denv.DevProject{Name: "empty", Dependencies: denv.NewDevProjectList()}
-	err := Generate(Workspace{
+	workspace := &Workspace{
 		Name:      "invalid",
 		OutputDir: t.TempDir(),
 		Projects:  []*Project{{Definition: project}},
-	})
+	}
+	err := generateWorkspace(workspace)
 	if err == nil || !strings.Contains(err.Error(), "requires at least one configuration") {
 		t.Fatalf("Generate() error = %v, want missing configuration error", err)
 	}

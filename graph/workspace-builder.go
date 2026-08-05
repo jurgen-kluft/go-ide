@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	corepkg "github.com/jurgen-kluft/gcore"
-	"github.com/jurgen-kluft/gide/denv"
+	corepkg "github.com/jurgen-kluft/go-core"
+	"github.com/jurgen-kluft/go-ide/denv"
 )
 
 type VarsResolver func(project *denv.DevProject, buildTarget denv.BuildTarget, buildConfig denv.BuildConfig, vars *corepkg.Vars)

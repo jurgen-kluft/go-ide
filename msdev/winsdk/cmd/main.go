@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	winsdk "github.com/jurgen-kluft/gide/msdev/winsdk"
+	winsdk "github.com/jurgen-kluft/go-ide/msdev/winsdk"
 )
 
 func main() {

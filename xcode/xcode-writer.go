@@ -3,7 +3,7 @@ package xcode
 import (
 	"fmt"
 
-	corepkg "github.com/jurgen-kluft/gcore"
+	corepkg "github.com/jurgen-kluft/go-core"
 )
 
 type LevelType int8

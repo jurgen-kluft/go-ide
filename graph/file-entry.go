@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	corepkg "github.com/jurgen-kluft/gcore"
+	corepkg "github.com/jurgen-kluft/go-core"
 )
 
 type FileType uint8

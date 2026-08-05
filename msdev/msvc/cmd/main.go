@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/jurgen-kluft/gide/msdev/msvc"
+	"github.com/jurgen-kluft/go-ide/msdev/msvc"
 )
 
 func main() {

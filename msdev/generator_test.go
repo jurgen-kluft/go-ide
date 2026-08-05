@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jurgen-kluft/gide/denv"
-	"github.com/jurgen-kluft/gide/graph"
+	"github.com/jurgen-kluft/go-ide/denv"
+	"github.com/jurgen-kluft/go-ide/graph"
 )
 
 func TestGenerateVs2022Workspace(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	corepkg "github.com/jurgen-kluft/gcore"
-	"github.com/jurgen-kluft/gide/denv"
-	"github.com/jurgen-kluft/gide/graph"
+	corepkg "github.com/jurgen-kluft/go-core"
+	"github.com/jurgen-kluft/go-ide/denv"
+	"github.com/jurgen-kluft/go-ide/graph"
 )
 
 type Workspace = graph.Workspace

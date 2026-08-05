@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	corepkg "github.com/jurgen-kluft/gcore"
-	"github.com/jurgen-kluft/gide/denv"
-	"github.com/jurgen-kluft/gide/graph"
+	corepkg "github.com/jurgen-kluft/go-core"
+	"github.com/jurgen-kluft/go-ide/denv"
+	"github.com/jurgen-kluft/go-ide/graph"
 )
 
 func NewConfigurationFromVars(vars *corepkg.Vars, buildTarget denv.BuildTarget, buildConfig denv.BuildConfig) (*XcodeConfiguration, CppStdType, error) {

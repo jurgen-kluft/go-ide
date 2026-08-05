@@ -1,8 +1,8 @@
 package xcode
 
 import (
-	"github.com/jurgen-kluft/gide/denv"
-	"github.com/jurgen-kluft/gide/graph"
+	"github.com/jurgen-kluft/go-ide/denv"
+	"github.com/jurgen-kluft/go-ide/graph"
 )
 
 type FileType = graph.FileType

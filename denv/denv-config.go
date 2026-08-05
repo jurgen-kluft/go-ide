@@ -1,7 +1,7 @@
 package denv
 
 import (
-	corepkg "github.com/jurgen-kluft/gcore"
+	corepkg "github.com/jurgen-kluft/go-core"
 )
 
 type DevConfig struct {

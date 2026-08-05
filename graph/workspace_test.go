@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jurgen-kluft/gide/denv"
+	"github.com/jurgen-kluft/go-ide/denv"
 )
 
 func TestWorkspaceOrdersProjectsAndBuildsGroups(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	corepkg "github.com/jurgen-kluft/gcore"
+	corepkg "github.com/jurgen-kluft/go-core"
 )
 
 func NewConfigurationFromVars(vars *corepkg.Vars) (*VsConfiguration, error) {

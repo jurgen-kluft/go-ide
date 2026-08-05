@@ -11,9 +11,9 @@ import (
 	"sort"
 	"strings"
 
-	corepkg "github.com/jurgen-kluft/gcore"
-	"github.com/jurgen-kluft/gide/denv"
-	"github.com/jurgen-kluft/gide/graph"
+	corepkg "github.com/jurgen-kluft/go-core"
+	"github.com/jurgen-kluft/go-ide/denv"
+	"github.com/jurgen-kluft/go-ide/graph"
 )
 
 const cppProjectTypeGuid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}"

@@ -1,6 +1,6 @@
 package msdev
 
-import "github.com/jurgen-kluft/gide/graph"
+import "github.com/jurgen-kluft/go-ide/graph"
 
 type VsCStandard = graph.VsCStandard
 type VsCppStandard = graph.VsCppStandard

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	corepkg "github.com/jurgen-kluft/gcore"
+	corepkg "github.com/jurgen-kluft/go-core"
 )
 
 // GetVarsFunc is a function that returns variables for a specific build target and build configuration, the

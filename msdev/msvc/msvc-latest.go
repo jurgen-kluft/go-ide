@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	corepkg "github.com/jurgen-kluft/gcore"
+	corepkg "github.com/jurgen-kluft/go-core"
 )
 
 // How does this work?

@@ -14,6 +14,7 @@ type DevProject struct {
 	Name         string
 	RepoName     string
 	PackagePath  string
+	IsUnittest   bool
 	BuildType    BuildType
 	BuildTargets BuildTarget
 	Copy2Output  map[PinnedGlobPath]string
@@ -22,12 +23,12 @@ type DevProject struct {
 	Dependencies *DevProjectList
 }
 
-func NewProject(pkg *Package, name string) *DevProject {
+func NewProject(pkg *Package, name string, buildType BuildType) *DevProject {
 	return &DevProject{
 		Name:         name,
 		RepoName:     pkg.RepoName,
 		PackagePath:  pkg.Path(),
-		BuildType:    BuildTypeUnknown,
+		BuildType:    buildType,
 		BuildTargets: EmptyBuildTarget,
 		Copy2Output:  make(map[PinnedGlobPath]string),
 		Configs:      []*DevConfig{},
@@ -54,7 +55,7 @@ func (p *DevProject) SetBuildTargets(target ...BuildTarget) {
 // at dstpath. If the file named by dstpath already exists, it is
 // truncated. The function does not copy the file mode, file
 // permission bits, or file attributes.
-func FileCopy(srcpath, dstpath string) (err error) {
+func FileCopyOld(srcpath, dstpath string) (err error) {
 	r, err := os.Open(srcpath)
 	if err != nil {
 		return err
@@ -127,16 +128,16 @@ func (prj *DevProject) AddDependency(dep *DevProject) {
 		panic("Cannot add nil dependency to project " + prj.Name)
 	}
 
-	if strings.HasPrefix(prj.Name, "unittest_") {
+	if prj.IsUnittest {
 		// The dependency project has to be a unittest library, if not panic
-		if dep != nil && strings.HasPrefix(dep.Name, "unittest_library_") {
+		if dep.IsUnittest {
 			prj.Dependencies.Add(dep)
 		} else {
 			panic("Cannot add dependency " + dep.Name + " to project " + prj.Name + ", because it is not a unittest library")
 		}
 	} else {
 		// The dependency project can be any type of project, except a unittest project
-		if dep != nil && !strings.HasPrefix(dep.Name, "unittest_") {
+		if !dep.IsUnittest {
 			prj.Dependencies.Add(dep)
 		} else {
 			panic("Cannot add dependency " + dep.Name + " to project " + prj.Name + ", because it is a unittest project")
@@ -291,9 +292,23 @@ func AddDefaultSourcePaths(pkg *Package, prj *DevProject, dir string, extensions
 	}
 }
 
+func AddDefaultConfigs(project *DevProject) {
+	project.Configs = nil
+
+	buildType := project.BuildType
+
+	// TODO we should create all possible configuration, not just debug/release
+	if project.IsUnittest {
+		project.Configs = append(project.Configs, NewDevConfig(buildType, NewDebugTestConfig()))
+		project.Configs = append(project.Configs, NewDevConfig(buildType, NewReleaseTestConfig()))
+	} else {
+		project.Configs = append(project.Configs, NewDevConfig(buildType, NewDebugConfig()))
+		project.Configs = append(project.Configs, NewDevConfig(buildType, NewReleaseConfig()))
+	}
+}
+
 func SetupDefaultCppLibProject(pkg *Package, name string) *DevProject {
-	project := NewProject(pkg, name)
-	project.BuildType = BuildTypeStaticLibrary
+	project := NewProject(pkg, name, BuildTypeStaticLibrary)
 	return project
 }
 
@@ -302,14 +317,10 @@ func SetupCppHeaderProject(pkg *Package, name string) *DevProject {
 	name = "library_" + name
 	dir := "main"
 
-	project := NewProject(pkg, name)
-	project.BuildType = BuildTypeHeaderOnly
-	project.BuildTargets = BuildTargetsAll
+	project := NewProject(pkg, name, BuildTypeHeaderOnly)
+	project.SetBuildTargets(BuildTargetsAll)
 
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewDebugConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewReleaseConfig()))
-
+	AddDefaultConfigs(project)
 	AddDefaultIncludePaths(pkg, project, dir)
 
 	return project
@@ -318,12 +329,9 @@ func SetupCppHeaderProject(pkg *Package, name string) *DevProject {
 func SetupCppLibraryDefault(pkg *Package, dir string, name string) *DevProject {
 
 	project := SetupDefaultCppLibProject(pkg, "library_"+name)
-	project.BuildTargets = BuildTargetsAll
+	project.SetBuildTargets(BuildTargetsAll)
 
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewDebugConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewReleaseConfig()))
-
+	AddDefaultConfigs(project)
 	AddDefaultIncludePaths(pkg, project, dir)
 	AddDefaultSourcePaths(pkg, project, dir, ".c", ".cpp")
 
@@ -341,12 +349,9 @@ func SetupCppLibProject(pkg *Package, name string) *DevProject {
 func SetupCppLibraryCustom(pkg *Package, name string) *DevProject {
 
 	project := SetupDefaultCppLibProject(pkg, "library_"+name)
-	project.BuildTargets = BuildTargetsAll
+	project.SetBuildTargets(BuildTargetsAll)
 
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewDebugConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewReleaseConfig()))
-
+	AddDefaultConfigs(project)
 	return project
 }
 
@@ -354,15 +359,11 @@ func SetupCppTestLibrary(pkg *Package, dir, name string) *DevProject {
 
 	// Windows, Mac and Linux, build for the Host platform
 	project := SetupDefaultCppLibProject(pkg, "unittest_library_"+name)
-	project.BuildType = BuildTypeStaticLibrary
-	project.BuildTargets = BuildTargetsDesktop
+	project.IsUnittest = true
+	project.SetBuildTargets(BuildTargetsDesktop)
 
 	AddDefaultSourcePaths(pkg, project, dir, ".c", ".cpp")
-
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewDebugTestConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewReleaseTestConfig()))
-
+	AddDefaultConfigs(project)
 	AddDefaultIncludePaths(pkg, project, dir)
 
 	return project
@@ -377,16 +378,10 @@ func SetupCppLibProjectForDesktop(pkg *Package, name string) *DevProject {
 
 	// Windows, Mac and Linux, build for the Host platform
 	project := SetupDefaultCppLibProject(pkg, "library_"+name)
-	project.BuildTargets = BuildTargetsDesktop
+	project.SetBuildTargets(BuildTargetsDesktop)
 
-	// project.SourceDirs = append(project.SourceDirs, PinnedGlobPath{Path: PinnedPath{Root: pkg.Path(), Base: pkg.RepoName, Sub: "source/" + dir + "/cpp"}, Glob: "**/*.c"})
-	// project.SourceDirs = append(project.SourceDirs, PinnedGlobPath{Path: PinnedPath{Root: pkg.Path(), Base: pkg.RepoName, Sub: "source/" + dir + "/cpp"}, Glob: "**/*.cpp"})
 	AddDefaultSourcePaths(pkg, project, dir, ".c", ".cpp")
-
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewDebugConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewReleaseConfig()))
-
+	AddDefaultConfigs(project)
 	AddDefaultIncludePaths(pkg, project, dir)
 
 	return project
@@ -395,46 +390,32 @@ func SetupCppLibProjectForDesktop(pkg *Package, name string) *DevProject {
 // Arduino Esp32
 func SetupCppLibProjectForArduinoEsp32(pkg *Package, name string) *DevProject {
 	project := SetupDefaultCppLibProject(pkg, "library_"+name)
-	project.BuildTargets = BuildTargetArduinoEsp32
-
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewDebugConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewReleaseConfig()))
-
+	project.SetBuildTargets(BuildTargetArduinoEsp32)
+	AddDefaultConfigs(project)
 	return project
 }
 
 // Arduino
 func SetupCppLibProjectForArduino(pkg *Package, name string) *DevProject {
 	project := SetupDefaultCppLibProject(pkg, "library_"+name)
-	project.BuildTargets = BuildTargetsArduino
-
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewDebugConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewReleaseConfig()))
-
+	project.SetBuildTargets(BuildTargetsArduino)
+	AddDefaultConfigs(project)
 	return project
 }
 
 func SetupDefaultCppLibProjectForArduino(pkg *Package, name string) *DevProject {
 	project := SetupCppLibProjectForArduino(pkg, name)
-
 	dir := "main"
 	AddDefaultIncludePaths(pkg, project, dir)
 	AddDefaultSourcePaths(pkg, project, dir, ".c", ".cpp")
-
 	return project
 }
 
 func SetupCppLibraryForArduinoEsp32(pkg *Package, dir string, name string) *DevProject {
-
 	project := SetupDefaultCppLibProject(pkg, "library_"+name)
-	project.BuildTargets = BuildTargetArduinoEsp32
+	project.SetBuildTargets(BuildTargetArduinoEsp32)
 
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewDebugConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewReleaseConfig()))
-
+	AddDefaultConfigs(project)
 	AddDefaultIncludePaths(pkg, project, dir)
 	AddDefaultSourcePaths(pkg, project, dir, ".c", ".cpp")
 
@@ -446,12 +427,9 @@ func SetupCppLibProjectForArduinoEsp8266(pkg *Package, name string) *DevProject 
 	dir := "main"
 
 	project := SetupDefaultCppLibProject(pkg, "library_"+name)
-	project.BuildTargets = BuildTargetArduinoEsp8266
+	project.SetBuildTargets(BuildTargetArduinoEsp8266)
 
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewDebugConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeStaticLibrary, NewReleaseConfig()))
-
+	AddDefaultConfigs(project)
 	AddDefaultIncludePaths(pkg, project, dir)
 
 	return project
@@ -460,14 +438,11 @@ func SetupCppLibProjectForArduinoEsp8266(pkg *Package, name string) *DevProject 
 func SetupDefaultCppTestProject(pkg *Package, name string, buildTarget BuildTarget) *DevProject {
 	dir := "test"
 
-	project := NewProject(pkg, name)
-	project.BuildType = BuildTypeUnittest
-	project.BuildTargets = BuildTargetsDesktop
+	project := NewProject(pkg, name, BuildTypeCli)
+	project.IsUnittest = true
+	project.SetBuildTargets(BuildTargetsDesktop)
 
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeUnittest, NewDebugTestConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeUnittest, NewReleaseTestConfig()))
-
+	AddDefaultConfigs(project)
 	AddDefaultSourcePaths(pkg, project, dir, ".c", ".cpp")
 	AddDefaultIncludePaths(pkg, project, dir)
 
@@ -487,13 +462,10 @@ func SetupCppTestProject(pkg *Package, name string) *DevProject {
 func SetupDefaultCppCliProject(pkg *Package, name string, buildTarget BuildTarget) *DevProject {
 	dir := "cli"
 
-	project := NewProject(pkg, name)
-	project.BuildType = BuildTypeCli
-	project.BuildTargets = BuildTargetsDesktop
-	// TODO we should create all possible configuration, not just debug/release
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeCli, NewDebugConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeCli, NewReleaseConfig()))
+	project := NewProject(pkg, name, BuildTypeCli)
+	project.SetBuildTargets(buildTarget)
 
+	AddDefaultConfigs(project)
 	AddDefaultSourcePaths(pkg, project, dir, ".c", ".cpp")
 	AddDefaultIncludePaths(pkg, project, dir)
 
@@ -505,14 +477,10 @@ func SetupDefaultCppCliProject(pkg *Package, name string, buildTarget BuildTarge
 //
 //	SetupDefaultCppAppProject("cmyapp", "github.com\\jurgen-kluft")
 func SetupDefaultCppAppProject(pkg *Package, name string, dirname string, buildTarget BuildTarget) *DevProject {
-	project := NewProject(pkg, name)
+	project := NewProject(pkg, name, BuildTypeApplication)
+	project.SetBuildTargets(buildTarget)
 
-	project.BuildType = BuildTypeApplication
-	project.BuildTargets = buildTarget
-
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeApplication, NewDebugConfig()))
-	project.Configs = append(project.Configs, NewDevConfig(BuildTypeApplication, NewReleaseConfig()))
-
+	AddDefaultConfigs(project)
 	AddDefaultSourcePaths(pkg, project, dirname, ".c", ".cpp")
 	AddDefaultIncludePaths(pkg, project, dirname)
 

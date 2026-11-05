@@ -11,7 +11,6 @@ const (
 	BuildTypeStaticLibrary  BuildType = 1
 	BuildTypeDynamicLibrary BuildType = 2
 	BuildTypeHeaderOnly     BuildType = 4
-	BuildTypeUnittest       BuildType = 16
 	BuildTypeCli            BuildType = 32
 	BuildTypeApplication    BuildType = 64
 )
@@ -40,12 +39,8 @@ func (t BuildType) IsCli() bool {
 	return t.has(BuildTypeCli)
 }
 
-func (t BuildType) IsUnittest() bool {
-	return t.has(BuildTypeUnittest)
-}
-
 func (t BuildType) IsExecutable() bool {
-	return t.IsApplication() || t.IsCli() || t.IsUnittest()
+	return t.IsApplication() || t.IsCli()
 }
 
 func BuildTypeFromString(str string) BuildType {
@@ -54,8 +49,6 @@ func BuildTypeFromString(str string) BuildType {
 		return BuildTypeApplication
 	case "cli":
 		return BuildTypeCli
-	case "unittest":
-		return BuildTypeUnittest
 	case "dynamic library":
 		return BuildTypeDynamicLibrary
 	case "static library":
@@ -73,8 +66,6 @@ func (t BuildType) String() string {
 		return "application"
 	case BuildTypeCli:
 		return "cli"
-	case BuildTypeUnittest:
-		return "unittest"
 	case BuildTypeDynamicLibrary:
 		return "dynamic library"
 	case BuildTypeStaticLibrary:
@@ -88,7 +79,7 @@ func (t BuildType) String() string {
 
 func (t BuildType) ProjectString() string {
 	switch t {
-	case BuildTypeApplication, BuildTypeUnittest, BuildTypeCli:
+	case BuildTypeApplication, BuildTypeCli:
 		return "c_exe"
 	case BuildTypeDynamicLibrary:
 		return "c_dll"

@@ -119,7 +119,7 @@ func (p *Package) Libraries() []*DevProject {
 func (p *Package) Executables() []*DevProject {
 	projects := NewDevProjectList()
 	addProjectFunc := func(prj *DevProject) {
-		if prj.BuildType&(BuildTypeUnittest|BuildTypeCli|BuildTypeApplication) != 0 {
+		if prj.BuildType&(BuildTypeCli|BuildTypeApplication) != 0 {
 			projects.Add(prj)
 		}
 	}
